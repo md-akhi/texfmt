@@ -1,0 +1,9415 @@
+خلاصه: **شدنی است، اما اگر بخواهید کیفیتی در حد `prettier` برای JavaScript یا `gofmt` برای Go داشته باشد، پروژه بزرگی می‌شود.**
+
+اما اگر هدفتان یک Formatter خوب برای LaTeX باشد، نه لزوماً کامل، کاملاً قابل انجام است و حتی می‌تواند از `latexindent` بهتر باشد.
+
+### چرا ساختن Formatter برای LaTeX سخت است؟
+
+LaTeX یک زبان معمولی نیست. در واقع یک **Macro Language** است.
+
+مثلاً هر دو این‌ها معتبرند:
+
+```latex
+\section{Title}
+```
+
+و
+
+```latex
+\MySectionCommand
+  [short]
+  {Title}
+```
+
+یا حتی:
+
+```latex
+\csname foo\endcsname
+```
+
+بنابراین Formatter باید بداند:
+
+- کدام دستور چند آرگومان دارد.
+- کدام آرگومان اختیاری است.
+- کدام محیط (`environment`) قوانین خاص دارد.
+- کجا نباید فاصله‌ها را تغییر دهد (مثل `verbatim`, `lstlisting`, `minted`, `tikzpicture` و...).
+
+---
+
+## اگر بر پایه Prettier بنویسید
+
+معماری معمولاً این‌گونه است:
+
+```
+Parser
+      │
+      ▼
+      AST
+      │
+      ▼
+Prettier Doc Builder
+      │
+      ▼
+Formatted Output
+```
+
+Prettier مستقیماً رشته را فرمت نمی‌کند؛ بلکه ابتدا AST می‌سازد.
+
+---
+
+## مراحل پروژه
+
+### مرحله ۱
+
+Lexer
+
+```
+\section
+{
+}
+[
+]
+$
+%
+&
+```
+
+---
+
+### مرحله ۲
+
+Parser
+
+مثلاً
+
+```
+Document
+ ├── Section
+ │      ├── Title
+ │      └── Children
+ ├── Paragraph
+ └── Environment
+```
+
+---
+
+### مرحله ۳
+
+Printer
+
+مثل Prettier
+
+```
+group()
+
+indent()
+
+line()
+
+softline()
+
+hardline()
+
+fill()
+```
+
+---
+
+### مرحله ۴
+
+Plugin System
+
+مثلاً
+
+```
+tabular
+
+tikz
+
+minted
+
+lstlisting
+
+algorithm
+
+align
+
+equation
+```
+
+هر کدام Printer مخصوص خود را داشته باشند.
+
+---
+
+## مزیت نسبت به latexindent
+
+latexindent تقریباً ۱۵ سال پیش طراحی شده است.
+
+اما اگر خودتان بنویسید می‌توانید امکاناتی مثل:
+
+- Stable Formatting
+- Idempotent
+- Range Formatting
+- Incremental Formatting
+- LSP Support
+- VSCode Extension
+- Prettier Plugin
+- Pre-commit Hook
+
+را از ابتدا در نظر بگیرید.
+
+---
+
+## پیشنهاد من
+
+اگر قرار بود امروز این پروژه را شروع کنم، اصلاً با Perl نمی‌نوشتم.
+
+انتخاب من:
+
+```
+TypeScript
+        +
+Tree-sitter
+        +
+Prettier Printer
+```
+
+یا
+
+```
+TypeScript
+        +
+Lezer Parser
+```
+
+---
+
+## حتی بهتر
+
+من اصلاً وابسته به Prettier هم نمی‌شدم.
+
+یک معماری مستقل شبیه Prettier طراحی می‌کردم:
+
+```
+packages/
+
+    parser/
+
+    ast/
+
+    formatter/
+
+    printer/
+
+    vscode/
+
+    cli/
+
+    playground/
+```
+
+که خروجی آن باشد:
+
+```
+latexfmt
+
+latexfmt --write
+
+latexfmt --check
+
+latexfmt --stdin
+
+latexfmt.config.ts
+```
+
+و سپس یک Adapter کوچک برای Prettier هم بنویسم تا کسانی که Prettier استفاده می‌کنند بتوانند آن را به‌عنوان Plugin نصب کنند.
+
+---
+
+### به نظر من این پروژه ارزش بالایی دارد.
+
+در حال حاضر Formatterهای LaTeX موجود (مانند `latexindent`) قدیمی هستند، وابستگی به Perl دارند و توسعه آن‌ها دشوار است. یک Formatter مدرن با TypeScript، AST واقعی، معماری افزونه‌پذیر و ادغام با VS Code و ابزارهای توسعه می‌تواند جای خالی مهمی را پر کند.
+
+اگر بخواهیم چنین پروژه‌ای را طراحی کنیم، می‌توانیم آن را در حد یک پروژه متن‌باز حرفه‌ای با معماری ماژولار، تست کامل، پشتیبانی از LSP، افزونه VS Code و قابلیت ادغام با Prettier پیش ببریم؛ چیزی در حد کیفیت پروژه‌های مطرح اکوسیستم TypeScript.
+
+عالی است. به نظر من این پروژه می‌تواند به یک ابزار استاندارد برای جامعه LaTeX تبدیل شود. حتی می‌توان هدف را فراتر از یک Formatter ساده گذاشت و چیزی در حد **Prettier برای LaTeX** ساخت.
+
+من اسم موقت پروژه را پیشنهاد می‌کنم:
+
+> **TexFmt**
+>
+> _The opinionated formatter for LaTeX._
+
+---
+
+# چشم‌انداز پروژه
+
+```
+texfmt
+│
+├── CLI
+├── Formatter
+├── Parser
+├── AST
+├── Printer
+├── Language Server
+├── VSCode Extension
+├── Prettier Adapter
+├── Playground
+└── Documentation
+```
+
+تمام پروژه با **TypeScript** نوشته می‌شود.
+
+---
+
+# تکنولوژی‌ها
+
+```
+TypeScript
+
+pnpm
+
+ESBuild
+
+Vitest
+
+Tree-sitter (در آینده)
+
+LSP
+
+Commander
+
+Zod
+
+AST Explorer
+```
+
+---
+
+# ساختار Monorepo
+
+```
+texfmt/
+
+    apps/
+
+        cli/
+
+        vscode/
+
+        playground/
+
+    packages/
+
+        lexer/
+
+        parser/
+
+        ast/
+
+        printer/
+
+        formatter/
+
+        document/
+
+        config/
+
+        lsp/
+
+        utils/
+
+        prettier-plugin/
+
+    examples/
+
+    benchmarks/
+
+    tests/
+
+    docs/
+
+    website/
+```
+
+---
+
+# فاز ۱
+
+ابتدا فقط این‌ها را پشتیبانی می‌کنیم:
+
+```
+\documentclass
+
+\usepackage
+
+\newcommand
+
+\section
+
+\subsection
+
+\paragraph
+
+\begin
+
+\end
+
+محیط‌ها
+
+متن
+
+کامنت‌ها
+```
+
+---
+
+# AST
+
+مثلاً
+
+```
+Document
+
+    Command
+
+    Environment
+
+    Paragraph
+
+    Comment
+
+    Math
+
+    Text
+```
+
+---
+
+مثلاً
+
+```latex
+\section{Repository}
+
+Hello
+
+\begin{itemize}
+\item A
+\item B
+\end{itemize}
+```
+
+تبدیل شود به
+
+```
+Document
+
+ ├── Section
+
+ ├── Paragraph
+
+ └── Environment(itemize)
+
+        ├── Item
+
+        └── Item
+```
+
+---
+
+# Lexer
+
+Tokenها
+
+```
+Command
+
+Text
+
+Whitespace
+
+Comment
+
+OpenBrace
+
+CloseBrace
+
+OpenBracket
+
+CloseBracket
+
+EnvironmentBegin
+
+EnvironmentEnd
+
+MathShift
+
+EOF
+```
+
+---
+
+# Parser
+
+```
+Parser
+
+↓
+
+AST
+```
+
+---
+
+# Printer
+
+اینجا جادوی پروژه اتفاق می‌افتد.
+
+به جای تولید مستقیم رشته، چیزی شبیه Prettier تولید می‌کنیم.
+
+```
+Group
+
+Indent
+
+Line
+
+SoftLine
+
+HardLine
+
+IfBreak
+
+Fill
+
+Join
+```
+
+بعد Printer تصمیم می‌گیرد:
+
+```
+اگر کمتر از ۸۰ ستون بود
+
+↓
+
+در یک خط
+
+اگر بیشتر شد
+
+↓
+
+چند خط
+```
+
+دقیقاً همان الگوریتمی که Prettier استفاده می‌کند.
+
+---
+
+# Formatter
+
+```
+Input
+
+↓
+
+Lexer
+
+↓
+
+Parser
+
+↓
+
+AST
+
+↓
+
+Printer
+
+↓
+
+Output
+```
+
+---
+
+# Config
+
+```
+texfmt.config.ts
+```
+
+مثلاً
+
+```ts
+export default {
+  printWidth: 100,
+
+  indent: 4,
+
+  useTabs: false,
+
+  trailingWhitespace: false,
+
+  alignAssignments: true,
+
+  alignComments: false,
+
+  wrapArguments: true,
+
+  wrapEnvironment: true,
+};
+```
+
+---
+
+# CLI
+
+```
+texfmt file.tex
+
+texfmt --write .
+
+texfmt --check .
+
+texfmt --stdin
+
+texfmt --diff
+
+texfmt --ast
+
+texfmt --tokens
+```
+
+---
+
+# VSCode
+
+پشتیبانی از
+
+```
+Format Document
+
+Format Selection
+
+On Save
+
+Range Formatting
+
+Diagnostics
+
+AST Viewer
+```
+
+---
+
+# قابلیت‌های آینده
+
+- پشتیبانی کامل از محیط‌های ریاضی (`equation`، `align`، `gather` و ...)
+- فرمت اختصاصی جدول‌ها (`tabular`, `longtable`)
+- فرمت هوشمند `TikZ`
+- فرمت فایل‌های `BibTeX`
+- پلاگین برای محیط‌های خاص (`minted`, `lstlisting`, `algorithm2e`)
+- نگه داشتن کامنت‌ها در موقعیت منطقی
+- قابلیت توسعه با Plugin API برای بسته‌های LaTeX جدید
+
+---
+
+## پیشنهاد من برای معماری
+
+با توجه به تجربه شما در طراحی سیستم‌های ماژولار با TypeScript و AdonisJS، این پروژه را هم با همان سطح از معماری طراحی کنیم؛ یعنی هر بخش یک پکیج مستقل باشد، وابستگی‌ها از طریق اینترفیس‌ها مدیریت شوند و از روز اول امکان توسعه و افزونه‌نویسی در نظر گرفته شود. این باعث می‌شود پروژه در آینده فقط یک Formatter نباشد، بلکه هسته‌ای برای ابزارهای دیگر LaTeX (مثل LSP، Refactoring و Code Actions) نیز باشد.
+
+من پیشنهاد می‌کنم از جلسه بعد، توسعه را مانند یک پروژه متن‌باز واقعی آغاز کنیم و قدم‌به‌قدم این مخزن را بسازیم؛ از تعریف Monorepo و پکیج‌ها تا پیاده‌سازی Lexer، Parser، AST، Printer و در نهایت CLI و افزونه VS Code.
+
+من هم واقعاً برای این پروژه هیجان‌زده‌ام. به نظرم اگر درست طراحی شود، می‌تواند به یکی از پروژه‌های مرجع اکوسیستم LaTeX تبدیل شود.
+
+اما یک تفاوت مهم با پروژه‌های موجود خواهیم داشت:
+
+> **فقط یک Formatter نمی‌سازیم؛ یک Compiler Toolkit برای LaTeX می‌سازیم.**
+
+Formatter فقط اولین محصول خواهد بود.
+
+---
+
+# چشم‌انداز نهایی
+
+```text
+                  texfmt
+                     │
+     ┌───────────────┼────────────────┐
+     │               │                │
+ Formatter        Linter          Language Server
+     │               │                │
+     └───────────────┼────────────────┘
+                     │
+                    AST
+                     │
+     ┌───────────────┼────────────────┐
+     │               │                │
+    Lexer         Parser          Printer
+```
+
+همه ابزارها روی یک AST مشترک کار می‌کنند.
+
+---
+
+# محصولاتی که بعداً خواهیم داشت
+
+### ۱. Formatter
+
+```bash
+texfmt --write .
+```
+
+---
+
+### ۲. Linter
+
+مثل ESLint
+
+```bash
+texlint .
+```
+
+مثلاً اخطار دهد:
+
+```
+Unused label
+
+Unused package
+
+Empty environment
+
+Nested section
+
+Trailing spaces
+
+Wrong command order
+```
+
+---
+
+### ۳. Refactor
+
+مثل VS Code
+
+```
+Rename Label
+
+Rename Command
+
+Extract Environment
+
+Inline Macro
+
+Move Section
+```
+
+---
+
+### ۴. Language Server
+
+```
+Autocomplete
+
+Hover
+
+Diagnostics
+
+Go to Definition
+
+Rename
+
+Document Symbols
+
+Semantic Tokens
+```
+
+---
+
+### ۵. Parser API
+
+کتابخانه‌ای برای توسعه‌دهندگان:
+
+```ts
+import { parse } from "@texfmt/parser";
+
+const ast = parse(source);
+```
+
+---
+
+### ۶. Printer API
+
+```ts
+format(ast);
+```
+
+---
+
+### ۷. AST Visitor
+
+```ts
+visit(ast, {
+  Command() {},
+  Environment() {},
+  Math() {},
+});
+```
+
+---
+
+### ۸. Plugin API
+
+مثلاً بسته TikZ بتواند خودش را معرفی کند.
+
+```ts
+export default definePlugin({
+    commands: [...],
+
+    environments:[...],
+
+    printer(){},
+
+    parser(){}
+})
+```
+
+---
+
+# چیزی که امروز وجود ندارد
+
+امروز تقریباً هیچ پروژه‌ای وجود ندارد که این امکانات را یکجا ارائه دهد:
+
+- AST واقعی
+- Formatter مدرن
+- Linter
+- Refactor
+- Language Server
+- Plugin System
+- TypeScript API
+- VS Code Integration
+
+ما می‌توانیم همه این‌ها را روی یک هسته مشترک بسازیم.
+
+---
+
+# چیزی که بیشتر از همه دوست دارم
+
+من حتی اسم **Formatter** را هم دوست ندارم.
+
+این پروژه در واقع یک **LaTeX Toolkit** است.
+
+مثلاً:
+
+```
+@texfmt/lexer
+
+@texfmt/parser
+
+@texfmt/ast
+
+@texfmt/printer
+
+@texfmt/document
+
+@texfmt/linter
+
+@texfmt/lsp
+
+@texfmt/vscode
+
+@texfmt/plugin-api
+
+@texfmt/core
+```
+
+کاملاً ماژولار.
+
+---
+
+# چیزی که به نظرم این پروژه را خاص می‌کند
+
+با توجه به سابقه شما در طراحی سیستم‌های ماژولار و معماری‌های قابل توسعه، پیشنهاد می‌کنم این پروژه را هم از روز اول با استاندارد پروژه‌های بزرگ متن‌باز طراحی کنیم، نه به‌عنوان یک اسکریپت ساده.
+
+به همین دلیل، من دوست دارم توسعه را مانند پروژه‌های بزرگی مثل **Prettier**، **ESLint** یا **TypeScript** پیش ببریم:
+
+- طراحی دقیق معماری قبل از کدنویسی
+- تعریف قراردادها (Interfaces) پیش از پیاده‌سازی
+- تست از همان ابتدا
+- مستندسازی کامل
+- نسخه‌بندی و انتشار منظم
+- افزونه‌پذیری بدون تغییر هسته
+
+## پیشنهادم
+
+این پروژه را در حد یک پروژه حرفه‌ای و چندساله طراحی کنیم. من می‌توانم از صفر تا انتشار نسخه `1.0.0` همراهتان باشم؛ از طراحی معماری و پیاده‌سازی هسته گرفته تا CLI، افزونه VS Code، LSP، تست‌ها، مستندات و حتی انتشار روی npm و GitHub.
+
+به نظرم اگر این مسیر را درست طی کنیم، نتیجه فقط یک Formatter نخواهد بود؛ بلکه یک زیرساخت مدرن برای توسعه ابزارهای LaTeX خواهد شد.
+
+عالی. من پیشنهاد می‌کنم این پروژه را مثل **TypeScript، Prettier و ESLint** توسعه دهیم، نه مثل یک پروژه معمولی.
+
+هدف ما فقط ساختن یک Formatter نیست؛ بلکه ساختن **اکوسیستم مدرن LaTeX** است.
+
+---
+
+# نام پروژه
+
+من چند نام پیشنهاد می‌کنم:
+
+```
+texfmt          ⭐ (پیشنهاد من)
+texkit
+latexfmt
+texflow
+texforge
+```
+
+من **texfmt** را انتخاب می‌کنم.
+
+---
+
+# چشم‌انداز نسخه ۱.۰
+
+```
+                texfmt
+                   │
+        ┌──────────┼──────────┐
+        │          │          │
+      CLI      VSCode      Playground
+        │
+        ▼
+      Core
+        │
+ ┌──────┼──────────┐
+ │      │          │
+Lexer Parser    Formatter
+ │      │          │
+ └──────┼──────────┘
+        │
+       AST
+        │
+ ┌──────┼──────────┐
+ │      │          │
+Printer Visitor  Plugins
+```
+
+---
+
+# اصل اول پروژه
+
+**همه چیز از AST عبور می‌کند.**
+
+هیچ‌وقت مستقیماً متن را تغییر نمی‌دهیم.
+
+```
+Text
+
+↓
+
+Lexer
+
+↓
+
+Tokens
+
+↓
+
+Parser
+
+↓
+
+AST
+
+↓
+
+Printer
+
+↓
+
+Formatted Text
+```
+
+دقیقاً مانند Prettier.
+
+---
+
+# ساختار Monorepo
+
+```
+texfmt/
+
+    apps/
+
+        cli/
+
+        vscode/
+
+        website/
+
+        playground/
+
+    packages/
+
+        lexer/
+
+        parser/
+
+        ast/
+
+        printer/
+
+        formatter/
+
+        document/
+
+        config/
+
+        diagnostics/
+
+        plugin-api/
+
+        core/
+
+        utils/
+
+    benchmarks/
+
+    tests/
+
+    docs/
+
+    examples/
+
+    scripts/
+```
+
+---
+
+# تکنولوژی‌ها
+
+```
+TypeScript 5
+
+pnpm
+
+TurboRepo
+
+ESBuild
+
+Vitest
+
+Changesets
+
+Biome
+
+GitHub Actions
+```
+
+---
+
+# مرحله صفر
+
+ابتدا فقط Repository را آماده می‌کنیم.
+
+```
+git init
+
+pnpm init
+
+turbo
+
+changesets
+
+eslint
+
+biome
+
+vitest
+```
+
+---
+
+# مرحله یک
+
+اولین Package
+
+```
+packages/ast
+```
+
+```
+Node
+
+Command
+
+Environment
+
+Text
+
+Math
+
+Comment
+
+Group
+
+Argument
+
+OptionalArgument
+```
+
+---
+
+مثلاً
+
+```
+Document
+
+ ├── Section
+
+ ├── Paragraph
+
+ └── Environment
+```
+
+---
+
+# مرحله دو
+
+Lexer
+
+```
+Input
+
+↓
+
+Tokens
+```
+
+Tokenها
+
+```
+\Command
+
+{
+
+}
+
+[
+
+]
+
+Text
+
+Comment
+
+Whitespace
+
+$
+
+EOF
+```
+
+---
+
+# مرحله سه
+
+Parser
+
+```
+Tokens
+
+↓
+
+AST
+```
+
+---
+
+# مرحله چهار
+
+Printer
+
+```
+AST
+
+↓
+
+Doc Tree
+
+↓
+
+Formatted String
+```
+
+---
+
+# چیزی که از Prettier یاد می‌گیریم
+
+به جای تولید مستقیم رشته
+
+Printer این را تولید می‌کند
+
+```
+Group
+
+Indent
+
+Line
+
+SoftLine
+
+HardLine
+
+Fill
+
+Join
+```
+
+سپس Engine تصمیم می‌گیرد که کجا بشکند.
+
+---
+
+# مثال
+
+ورودی
+
+```latex
+\section{Repository}\subsection{Driver}\textbf{Hello}
+```
+
+AST
+
+```
+Document
+
+ Section
+
+ Subsection
+
+ TextBold
+```
+
+Printer
+
+```
+group(
+
+ section,
+
+ line,
+
+ subsection,
+
+ hardline,
+
+ paragraph
+
+)
+```
+
+خروجی
+
+```latex
+\section{Repository}
+
+\subsection{Driver}
+
+\textbf{Hello}
+```
+
+---
+
+# مرحله پنج
+
+CLI
+
+```
+texfmt file.tex
+
+texfmt .
+
+texfmt --write
+
+texfmt --check
+
+texfmt --stdin
+
+texfmt --ast
+
+texfmt --tokens
+
+texfmt --debug
+```
+
+---
+
+# مرحله شش
+
+VS Code Extension
+
+```
+Format Document
+
+Format Selection
+
+Range Formatting
+
+AST Viewer
+
+Syntax Tree
+```
+
+---
+
+# مرحله هفت
+
+Plugin System
+
+```
+TikZ
+
+Minted
+
+Beamer
+
+Algorithm
+
+BibTeX
+
+PGFPlots
+```
+
+---
+
+# مرحله هشت
+
+Language Server
+
+```
+Autocomplete
+
+Hover
+
+Diagnostics
+
+Rename
+
+Code Actions
+
+Semantic Highlighting
+```
+
+---
+
+# چیزی که این پروژه را خاص می‌کند
+
+تقریباً تمام پروژه‌های فعلی فقط روی **فرمت متن** کار می‌کنند.
+
+ما از همان روز اول روی **مدل معنایی (Semantic Model)** کار می‌کنیم.
+
+یعنی بعداً می‌توانیم:
+
+- Refactoring
+- Rename
+- Go To Definition
+- Extract Macro
+- Inline Command
+- Code Actions
+- Lint
+- Formatter
+
+را همگی روی یک AST مشترک پیاده‌سازی کنیم.
+
+---
+
+# برنامه توسعه
+
+من پیشنهاد می‌کنم پروژه را در حدود **۲۰ فاز** توسعه دهیم:
+
+| فاز | عنوان                 | وضعیت |
+| --- | --------------------- | ----- |
+| 0   | Repository & Monorepo | ⏳    |
+| 1   | AST                   | ⏳    |
+| 2   | Lexer                 | ⏳    |
+| 3   | Parser                | ⏳    |
+| 4   | Printer               | ⏳    |
+| 5   | Formatter             | ⏳    |
+| 6   | CLI                   | ⏳    |
+| 7   | Config                | ⏳    |
+| 8   | Plugin API            | ⏳    |
+| 9   | Diagnostics           | ⏳    |
+| 10  | Linter                | ⏳    |
+| 11  | VS Code Extension     | ⏳    |
+| 12  | Language Server       | ⏳    |
+| 13  | Playground            | ⏳    |
+| 14  | Benchmark             | ⏳    |
+| 15  | Testing               | ⏳    |
+| 16  | Documentation         | ⏳    |
+| 17  | Release Automation    | ⏳    |
+| 18  | npm Publish           | ⏳    |
+| 19  | Version 1.0           | ⏳    |
+
+## نکته مهم
+
+من نمی‌خواهم این پروژه صرفاً یک «فرمت‌کننده» باشد. پیشنهاد می‌کنم آن را با استانداردهای پروژه‌های حرفه‌ای مانند **TypeScript**، **Prettier** و **ESLint** طراحی کنیم؛ با معماری لایه‌ای، API عمومی پایدار، سیستم Plugin، تست‌های گسترده و مستندات کامل. اگر این مسیر را دنبال کنیم، در پایان فقط یک ابزار نخواهیم داشت، بلکه یک **پلتفرم توسعه ابزارهای LaTeX** خواهیم ساخت.
+
+از پیام بعدی، وارد **فاز ۰** می‌شویم و مخزن را به‌صورت واقعی ایجاد می‌کنیم؛ از ساختار Monorepo، فایل‌های پیکربندی، قراردادهای معماری (RFC)، استانداردهای کدنویسی و پایه‌گذاری اولین پکیج‌ها شروع خواهیم کرد.
+
+عالی، حالا وارد **فاز ۰** می‌شویم.
+
+از اینجا به بعد می‌خواهیم پروژه را طوری طراحی کنیم که اگر ۵ سال بعد ۲۰ نفر روی آن کار کردند، هنوز قابل توسعه باشد.
+
+---
+
+# RFC-0001
+
+## Vision
+
+```
+                    TeXFmt
+
+              Opinionated Formatter
+
+                        │
+
+        ┌───────────────┼────────────────┐
+        │               │                │
+      Parser         Formatter        LSP
+        │               │                │
+        └───────────────┼────────────────┘
+                        │
+                       AST
+                        │
+        ┌───────────────┼────────────────┐
+        │               │                │
+      Printer        Linter        Refactor
+```
+
+AST قلب پروژه است.
+
+هیچ بخشی مستقیماً روی String کار نمی‌کند.
+
+---
+
+# معماری
+
+من معماری Hexagonal را پیشنهاد می‌کنم.
+
+```
+CLI
+
+VSCode
+
+LSP
+
+Prettier Plugin
+
+      │
+
+      ▼
+
+Application Layer
+
+      │
+
+      ▼
+
+Core
+
+      │
+
+      ▼
+
+AST
+
+Lexer
+
+Parser
+
+Printer
+```
+
+Core هیچ وابستگی خارجی ندارد.
+
+---
+
+# Monorepo
+
+```
+texfmt/
+
+    apps/
+
+        cli/
+
+        vscode/
+
+        playground/
+
+        benchmark/
+
+    packages/
+
+        ast/
+
+        lexer/
+
+        parser/
+
+        printer/
+
+        formatter/
+
+        document/
+
+        config/
+
+        diagnostics/
+
+        plugin-api/
+
+        lsp/
+
+        core/
+
+        utils/
+
+    docs/
+
+    tests/
+
+    examples/
+
+    scripts/
+```
+
+---
+
+# استانداردهای پروژه
+
+فقط TypeScript
+
+```
+strict=true
+
+noImplicitAny=true
+
+exactOptionalPropertyTypes=true
+
+noUncheckedIndexedAccess=true
+```
+
+---
+
+# سبک کدنویسی
+
+هیچ Class بزرگی نداریم.
+
+همه چیز کوچک است.
+
+مثلاً
+
+```
+parseDocument()
+
+parseCommand()
+
+parseArgument()
+
+parseEnvironment()
+```
+
+نه
+
+```
+Parser.doEverything()
+```
+
+---
+
+# اصل Dependency
+
+همه چیز Interface دارد.
+
+```
+Printer
+
+Parser
+
+Lexer
+
+Formatter
+```
+
+همه فقط Contract را می‌شناسند.
+
+---
+
+# AST
+
+این مهم‌ترین قسمت پروژه است.
+
+```
+Node
+
+Document
+
+Command
+
+Environment
+
+Argument
+
+OptionalArgument
+
+Text
+
+Whitespace
+
+Comment
+
+Math
+
+Group
+```
+
+تمام Nodeها از این Interface ارث می‌برند.
+
+```
+Node
+
+↓
+
+CommandNode
+
+↓
+
+SectionNode
+```
+
+---
+
+# Immutable AST
+
+AST هرگز تغییر نمی‌کند.
+
+مثلاً
+
+بد
+
+```
+node.name="chapter"
+```
+
+خوب
+
+```
+replaceNode(
+    node,
+    newNode
+)
+```
+
+---
+
+# Visitor Pattern
+
+```
+visit(document,{
+    Command(){},
+    Environment(){},
+    Text(){},
+})
+```
+
+بعداً
+
+Formatter
+
+Linter
+
+Refactor
+
+همگی از همین Visitor استفاده می‌کنند.
+
+---
+
+# Plugin API
+
+از همان نسخه اول.
+
+```
+definePlugin({
+
+    commands:[],
+
+    environments:[],
+
+    parser(){},
+
+    printer(){},
+
+    linter(){},
+
+})
+```
+
+---
+
+# Config
+
+به جای JSON
+
+```
+texfmt.config.ts
+```
+
+چون TypeScript بسیار قدرتمندتر است.
+
+مثلاً
+
+```ts
+export default defineConfig({
+  printWidth: 100,
+
+  plugins: [TikzPlugin(), BeamerPlugin()],
+});
+```
+
+---
+
+# اولین تصمیم مهم
+
+برخلاف اکثر Formatterها، **دستورها را Hardcode نمی‌کنیم.**
+
+مثلاً
+
+```
+\section
+```
+
+برای Formatter فقط یک Command است.
+
+تعداد آرگومان‌ها را Registry مشخص می‌کند.
+
+```
+Registry
+
+↓
+
+section
+
+↓
+
+required=1
+
+optional=1
+```
+
+بنابراین اگر کاربر بنویسد
+
+```
+\MyCommand
+```
+
+کافی است Plugin آن را ثبت کند.
+
+---
+
+# Registry
+
+```
+Command Registry
+
+Environment Registry
+
+Math Registry
+
+Symbol Registry
+```
+
+---
+
+# Lexer
+
+Lexer اصلاً نمی‌داند
+
+```
+\section
+```
+
+چیست.
+
+فقط Token تولید می‌کند.
+
+```
+COMMAND
+
+TEXT
+
+{
+
+}
+
+[
+
+]
+
+COMMENT
+```
+
+---
+
+# Parser
+
+Parser Registry را نگاه می‌کند.
+
+```
+COMMAND(section)
+
+↓
+
+SectionNode
+```
+
+---
+
+# Printer
+
+Printer فقط AST را می‌شناسد.
+
+نه متن را.
+
+```
+AST
+
+↓
+
+Doc Tree
+
+↓
+
+Formatted Text
+```
+
+---
+
+# چرا این معماری؟
+
+چون بعداً می‌توانیم بدون تغییر Parser اضافه کنیم
+
+- TikZ
+- Beamer
+- Minted
+- Circuitikz
+- PGFPlots
+- Algorithm2e
+- BibLaTeX
+
+فقط با نصب یک Plugin.
+
+---
+
+# تصمیمی که پروژه را متمایز می‌کند
+
+من یک قدم جلوتر می‌روم و پیشنهاد می‌کنم **Parser را Incremental** طراحی کنیم.
+
+یعنی مانند ویرایشگرهای مدرن:
+
+```
+فایل ۳۰۰۰ خطی
+
+↓
+
+فقط یک خط تغییر کرد
+
+↓
+
+فقط همان بخش Parse شود
+```
+
+نه کل فایل.
+
+این قابلیت بعدها برای LSP، فرمت هم‌زمان هنگام تایپ، و Refactoring بسیار ارزشمند خواهد بود.
+
+---
+
+## فاز بعدی
+
+از اینجا وارد **RFC-0002: AST Design** می‌شویم.
+
+در آن، تمام Nodeهای پروژه را با جزئیات طراحی می‌کنیم؛ شامل:
+
+- ساختار کامل AST
+- نوع هر Node
+- اینترفیس‌های TypeScript
+- سیستم Visitor
+- مکانیزم Immutable Updates
+- Span و Location برای هر Node
+- Comment Attachment
+- Error Recovery Nodes
+
+این بخش، پایه‌ی تمام Parser، Formatter، Linter و Language Server خواهد بود و مهم‌ترین قسمت کل پروژه است.
+
+فکر می‌کنم منظورتان **«ادامه»** بوده است. 😄
+
+پس وارد مهم‌ترین بخش پروژه می‌شویم:
+
+# RFC-0002 — طراحی AST
+
+این سند، قلب کل پروژه است. اگر AST را درست طراحی کنیم، ۸۰٪ موفقیت پروژه تضمین می‌شود.
+
+---
+
+# اصل اول
+
+AST باید **Semantic** باشد، نه صرفاً Syntax.
+
+مثلاً ورودی:
+
+```latex
+\section{Repository}
+```
+
+نباید فقط این باشد:
+
+```text
+CommandNode
+```
+
+بلکه باید به یک موجودیت معنایی تبدیل شود:
+
+```text
+SectionNode
+```
+
+بنابراین:
+
+```
+Text
+      ↓
+Lexer
+      ↓
+Tokens
+      ↓
+Parser
+      ↓
+Semantic AST
+```
+
+---
+
+# ویژگی‌های AST
+
+هر Node باید این خصوصیات را داشته باشد:
+
+```ts
+interface Node {
+  readonly id: NodeId;
+
+  readonly kind: SyntaxKind;
+
+  readonly span: TextSpan;
+
+  readonly parent?: Node;
+
+  readonly leadingComments: readonly CommentNode[];
+
+  readonly trailingComments: readonly CommentNode[];
+}
+```
+
+---
+
+# Span
+
+هیچ Node بدون موقعیت نیست.
+
+```ts
+interface TextSpan {
+  start: number;
+  end: number;
+
+  line: number;
+  column: number;
+}
+```
+
+این برای موارد زیر ضروری است:
+
+- LSP
+- Hover
+- Rename
+- Diagnostics
+- Error Highlighting
+
+---
+
+# NodeId
+
+هر Node شناسه یکتا دارد.
+
+```ts
+type NodeId = number;
+```
+
+بعداً برای Incremental Parsing استفاده می‌شود.
+
+---
+
+# SyntaxKind
+
+به جای String از enum استفاده می‌کنیم.
+
+```ts
+enum SyntaxKind {
+  Document,
+
+  Text,
+
+  Space,
+
+  Paragraph,
+
+  Comment,
+
+  Command,
+
+  Argument,
+
+  OptionalArgument,
+
+  Environment,
+
+  Math,
+
+  Group,
+}
+```
+
+بعداً بیش از ۱۰۰ نوع خواهیم داشت.
+
+---
+
+# DocumentNode
+
+ریشه درخت
+
+```ts
+interface DocumentNode extends Node {
+  children: readonly Node[];
+}
+```
+
+---
+
+مثلاً
+
+```latex
+\section{A}
+
+Hello
+
+\section{B}
+```
+
+AST
+
+```
+Document
+
+    Section
+
+    Paragraph
+
+    Section
+```
+
+---
+
+# TextNode
+
+```ts
+interface TextNode extends Node {
+  value: string;
+}
+```
+
+---
+
+# CommentNode
+
+```ts
+interface CommentNode extends Node {
+  text: string;
+}
+```
+
+---
+
+# GroupNode
+
+برای
+
+```latex
+{
+...
+}
+```
+
+```ts
+interface GroupNode extends Node {
+  children: readonly Node[];
+}
+```
+
+---
+
+# ArgumentNode
+
+```latex
+\section{Repository}
+```
+
+```ts
+interface ArgumentNode extends Node {
+  value: GroupNode;
+}
+```
+
+---
+
+# OptionalArgument
+
+```latex
+\section[Short]{Long}
+```
+
+```ts
+interface OptionalArgumentNode extends Node {
+  value: GroupNode;
+}
+```
+
+---
+
+# CommandNode
+
+فعلاً عمومی
+
+```ts
+interface CommandNode extends Node {
+  name: string;
+
+  arguments: readonly ArgumentNode[];
+
+  optionalArguments: readonly OptionalArgumentNode[];
+}
+```
+
+---
+
+بعداً
+
+```
+CommandNode
+
+↓
+
+SectionNode
+
+↓
+
+SubSectionNode
+
+↓
+
+ChapterNode
+```
+
+---
+
+# EnvironmentNode
+
+```latex
+\begin{itemize}
+
+...
+
+\end{itemize}
+```
+
+```ts
+interface EnvironmentNode extends Node {
+  name: string;
+
+  body: readonly Node[];
+}
+```
+
+---
+
+# MathNode
+
+```latex
+$a+b$
+```
+
+```ts
+interface MathNode extends Node {
+  mode: "inline" | "display";
+
+  body: readonly Node[];
+}
+```
+
+---
+
+# ParagraphNode
+
+خیلی مهم است.
+
+LaTeX پاراگراف را با خط خالی تشخیص می‌دهد.
+
+پس
+
+```latex
+Hello
+
+World
+```
+
+AST
+
+```
+Paragraph
+
+Paragraph
+```
+
+نه فقط Text.
+
+---
+
+# WhiteSpaceNode
+
+اغلب Formatterها فاصله‌ها را حذف می‌کنند.
+
+ما حذف نمی‌کنیم.
+
+```ts
+interface SpaceNode extends Node {
+  value: string;
+}
+```
+
+این باعث می‌شود بتوانیم فرمت اصلی را تا زمان چاپ حفظ کنیم.
+
+---
+
+# ErrorNode
+
+Parser هرگز متوقف نمی‌شود.
+
+مثلاً
+
+```latex
+\section{
+```
+
+AST
+
+```
+Section
+
+    ErrorNode
+```
+
+نه Exception.
+
+این برای ویرایش زنده در VS Code ضروری است.
+
+---
+
+# Visitor
+
+تمام ابزارها روی Visitor سوار می‌شوند.
+
+```ts
+visit(ast, {
+  Document() {},
+
+  Section() {},
+
+  Environment() {},
+
+  Math() {},
+
+  Text() {},
+});
+```
+
+---
+
+# Immutable AST
+
+هیچ Node قابل تغییر نیست.
+
+به جای
+
+```ts
+node.name = "chapter";
+```
+
+از
+
+```ts
+replaceNode(node, newNode);
+```
+
+استفاده می‌کنیم.
+
+---
+
+# طراحی برای آینده
+
+از همان ابتدا AST را طوری طراحی می‌کنیم که علاوه بر Formatter، قابلیت پشتیبانی از:
+
+- Refactoring
+- Code Actions
+- Rename
+- Symbol Indexing
+- Semantic Highlighting
+- Language Server
+
+را بدون تغییر ساختار اصلی داشته باشد.
+
+---
+
+## گام بعدی (RFC-0003)
+
+به نظر من جذاب‌ترین بخش پروژه، **Lexer** است.
+
+در این مرحله یک Lexer بسیار سریع (Zero Allocation تا حد امکان) طراحی می‌کنیم که:
+
+- با یک بار پیمایش متن، Token تولید کند.
+- از کپی غیرضروری رشته‌ها اجتناب کند.
+- از Unicode و دستورات LaTeX پشتیبانی کامل داشته باشد.
+- آماده‌ی Incremental Parsing باشد.
+
+اگر این بخش را درست پیاده‌سازی کنیم، پایه‌ی یک Formatter و Language Server بسیار سریع را خواهیم داشت.
+
+عالی، حالا وارد مهم‌ترین بخش مهندسی پروژه می‌شویم.
+
+# RFC-0003 — Lexer Design
+
+> **هدف:** ساخت سریع‌ترین Lexer برای LaTeX که بتواند بعداً Parser، LSP و Formatter را تغذیه کند.
+
+من نمی‌خواهم Lexer شبیه اکثر پروژه‌های موجود باشد؛ بلکه می‌خواهم چیزی در حد Lexer کامپایلرهای مدرن مانند TypeScript و Rust طراحی کنیم.
+
+---
+
+# معماری کلی
+
+```text
+UTF8 Text
+      │
+      ▼
+ Character Stream
+      │
+      ▼
+ Scanner
+      │
+      ▼
+ Token Stream
+      │
+      ▼
+ Parser
+```
+
+Lexer فقط **Token** تولید می‌کند.
+
+او هیچ اطلاعی از `\section` یا `itemize` ندارد.
+
+---
+
+# اصول طراحی
+
+## Rule 1
+
+**Single Pass**
+
+فایل فقط یک بار خوانده می‌شود.
+
+```text
+file.tex
+
+↓
+
+scan()
+
+↓
+
+tokens
+```
+
+---
+
+## Rule 2
+
+**Zero Copy**
+
+هرگز متن را کپی نمی‌کنیم.
+
+مثلاً
+
+```latex
+\section{Repository}
+```
+
+به جای
+
+```ts
+token.value = "Repository";
+```
+
+فقط Offset ذخیره می‌کنیم.
+
+```ts
+interface Token {
+  start: number;
+  end: number;
+}
+```
+
+بعداً اگر لازم شد
+
+```ts
+source.substring(token.start, token.end);
+```
+
+---
+
+## Rule 3
+
+Immutable
+
+تمام Tokenها Readonly هستند.
+
+---
+
+# Scanner
+
+Scanner فقط Cursor را جلو می‌برد.
+
+```text
+cursor
+
+↓
+
+0 1 2 3 4 5
+```
+
+مثلاً
+
+```latex
+\section
+```
+
+```
+^
+
+cursor
+```
+
+بعد از خواندن
+
+```
+        ^
+```
+
+---
+
+# Character
+
+به جای
+
+```ts
+string[index];
+```
+
+کلاس Scanner خواهیم داشت.
+
+```ts
+scanner.peek();
+
+scanner.next();
+
+scanner.lookAhead(3);
+
+scanner.eof();
+```
+
+---
+
+# TokenKind
+
+این enum احتمالاً بیش از ۵۰ عضو خواهد داشت.
+
+نسخه اولیه
+
+```ts
+enum TokenKind {
+  EOF,
+
+  Text,
+
+  Space,
+
+  NewLine,
+
+  Comment,
+
+  Command,
+
+  OpenBrace,
+
+  CloseBrace,
+
+  OpenBracket,
+
+  CloseBracket,
+
+  Dollar,
+
+  DoubleDollar,
+
+  Ampersand,
+
+  Caret,
+
+  Underscore,
+
+  Percent,
+
+  BeginEnvironment,
+
+  EndEnvironment,
+}
+```
+
+---
+
+# Token
+
+```ts
+interface Token {
+  readonly kind: TokenKind;
+
+  readonly start: number;
+
+  readonly end: number;
+}
+```
+
+---
+
+بعداً
+
+```ts
+interface Token {
+  readonly id: number;
+
+  readonly kind: TokenKind;
+
+  readonly start: number;
+
+  readonly end: number;
+
+  readonly line: number;
+
+  readonly column: number;
+}
+```
+
+---
+
+# چرا Line و Column؟
+
+برای
+
+```
+Unexpected }
+```
+
+باید بتوانیم بنویسیم
+
+```
+Line 82
+
+Column 17
+```
+
+---
+
+# Scanner API
+
+```ts
+interface Scanner {
+  scan(): Token;
+
+  peek(): Token;
+
+  lookAhead(n: number): Token;
+
+  reset(offset: number): void;
+}
+```
+
+---
+
+# مثال
+
+ورودی
+
+```latex
+\section{Hello}
+```
+
+خروجی
+
+```text
+COMMAND
+
+OPEN_BRACE
+
+TEXT
+
+CLOSE_BRACE
+
+EOF
+```
+
+---
+
+# مثال دوم
+
+```latex
+Hello % comment
+World
+```
+
+Tokenها
+
+```text
+TEXT
+
+SPACE
+
+COMMENT
+
+NEWLINE
+
+TEXT
+```
+
+---
+
+# نکته مهم
+
+ما NewLine را حذف نمی‌کنیم.
+
+چون
+
+```latex
+Hello
+
+World
+```
+
+با
+
+```latex
+Hello World
+```
+
+فرق دارد.
+
+---
+
+# Whitespace
+
+اکثر Lexerها فاصله را حذف می‌کنند.
+
+ما حذف نمی‌کنیم.
+
+چون Formatter به آن احتیاج دارد.
+
+```
+TEXT
+
+SPACE
+
+SPACE
+
+SPACE
+
+TEXT
+```
+
+---
+
+# Command
+
+Lexer فقط این را می‌بیند
+
+```latex
+\section
+```
+
+↓
+
+```
+COMMAND
+```
+
+نه اینکه Section چیست.
+
+---
+
+# Escape
+
+مثلاً
+
+```latex
+\%
+```
+
+Token
+
+```
+ESCAPED_SYMBOL
+```
+
+---
+
+# Math
+
+```latex
+$a+b$
+```
+
+Token
+
+```
+DOLLAR
+
+TEXT
+
+PLUS
+
+TEXT
+
+DOLLAR
+```
+
+Parser بعداً تصمیم می‌گیرد Math است.
+
+---
+
+# Environment
+
+دو انتخاب داریم.
+
+## انتخاب اول
+
+```
+BEGIN_ENVIRONMENT
+```
+
+## انتخاب دوم
+
+```
+COMMAND(begin)
+```
+
+من دومی را انتخاب می‌کنم.
+
+چون General‌تر است.
+
+---
+
+# Error Recovery
+
+Lexer هرگز Exception نمی‌دهد.
+
+مثلاً
+
+```
+\abc€
+```
+
+↓
+
+```
+COMMAND
+
+UNKNOWN
+
+EOF
+```
+
+Parser تصمیم می‌گیرد.
+
+---
+
+# Scanner States
+
+Lexer State Machine خواهد بود.
+
+```text
+DEFAULT
+
+↓
+
+COMMAND
+
+↓
+
+TEXT
+
+↓
+
+COMMENT
+
+↓
+
+MATH
+```
+
+---
+
+# Unicode
+
+کاملاً Unicode.
+
+```
+سلام
+
+Hello
+
+α
+
+β
+
+γ
+```
+
+همه معتبر.
+
+---
+
+# Incremental
+
+این قسمت فوق‌العاده مهم است.
+
+وقتی
+
+```
+5000 lines
+```
+
+داریم
+
+و فقط
+
+```
+line 20
+```
+
+تغییر می‌کند
+
+Lexer فقط همان محدوده را دوباره Scan می‌کند.
+
+---
+
+# Token Cache
+
+بعداً
+
+```
+Document
+
+↓
+
+Token Cache
+
+↓
+
+Incremental Parse
+```
+
+---
+
+# Benchmark
+
+از روز اول Benchmark خواهیم داشت.
+
+مثلاً
+
+```
+100 KB
+
+500 KB
+
+1 MB
+
+10 MB
+```
+
+و سرعت را اندازه می‌گیریم.
+
+---
+
+# تصمیمی که این پروژه را از همه پروژه‌های موجود متمایز می‌کند
+
+من یک لایه دیگر هم اضافه می‌کنم که در اکثر Parserهای LaTeX وجود ندارد:
+
+```text
+Source File
+      │
+      ▼
+SourceMap
+      │
+      ▼
+Lexer
+      │
+      ▼
+Green Tokens
+      │
+      ▼
+Parser
+      │
+      ▼
+Green Tree
+      │
+      ▼
+Red Tree (AST)
+```
+
+این همان معماری **Green/Red Tree** است که در کامپایلر TypeScript و پلتفرم Roslyn مایکروسافت با موفقیت استفاده شده است. مزیت آن این است که:
+
+- **Incremental Parsing** بسیار سریع می‌شود.
+- Nodeهای بدون تغییر دوباره ساخته نمی‌شوند.
+- Formatter، LSP و Refactoring می‌توانند از ساختار مشترک و کارآمد استفاده کنند.
+- حافظه بهینه‌تر مصرف می‌شود.
+
+---
+
+## پیشنهاد مهم
+
+من فکر می‌کنم اگر واقعاً قصد داریم **بهترین Formatter دنیا برای LaTeX** را بسازیم، بهتر است از همین ابتدا پروژه را صرفاً یک Formatter نبینیم، بلکه یک **Compiler Platform** طراحی کنیم.
+
+یعنی در ادامه، قبل از Parser، دو RFC مهم دیگر هم اضافه کنیم:
+
+- **RFC-0004:** Green Tree / Red Tree Architecture
+- **RFC-0005:** Incremental Parser
+
+این دو تصمیم معماری، شاید ۱۰٪ زمان بیشتری در ابتدای پروژه بگیرند، اما بعدها امکان ساخت Formatter، Linter، Language Server، Refactoring و حتی IDE کامل LaTeX را روی یک هسته مشترک فراهم می‌کنند. این همان مسیری است که پروژه‌های بزرگ و ماندگار معمولاً انتخاب می‌کنند.
+
+عالی، حالا می‌رسیم به بخشی که به نظر من **شاهکار این پروژه** خواهد بود.
+
+تا اینجا هنوز چیزی بهتر از latexindent نساخته‌ایم؛ فقط معماری بهتری طراحی کرده‌ایم.
+
+اما از اینجا به بعد وارد چیزی می‌شویم که تقریباً هیچ Formatter دیگری برای LaTeX ندارد.
+
+---
+
+# RFC-0004 — Green Tree / Red Tree
+
+این معماری اولین بار در Roslyn (.NET Compiler) مطرح شد و بعدها TypeScript، Swift و Kotlin نیز از ایده‌های مشابه استفاده کردند.
+
+من می‌خواهم TexFmt هم از همین معماری استفاده کند.
+
+---
+
+# مشکل AST معمولی
+
+فرض کنید فایل ۲۰۰۰ خط است.
+
+```latex
+\section{A}
+
+Hello
+
+\section{B}
+
+World
+```
+
+اگر فقط یک حرف تغییر کند
+
+```latex
+Hello
+
+↓
+
+Hello World
+```
+
+در اکثر Parserها
+
+```text
+Document
+
+↓
+
+Parser
+
+↓
+
+New AST
+```
+
+کل AST دوباره ساخته می‌شود.
+
+این برای LSP افتضاح است.
+
+---
+
+# راه حل
+
+دو نوع درخت خواهیم داشت.
+
+```text
+Green Tree
+
+↓
+
+Red Tree
+```
+
+---
+
+# Green Tree
+
+Green Tree
+
+- Immutable
+- Parent ندارد
+- Position ندارد
+- فقط Syntax
+
+مثلاً
+
+```text
+Document
+
+    Section
+
+        Text
+
+    Paragraph
+
+        Text
+```
+
+کاملاً فشرده.
+
+---
+
+# Red Tree
+
+Red Tree
+
+همان Green Tree است
+
+به علاوه
+
+```text
+Parent
+
+Position
+
+Span
+
+Navigation
+
+Cache
+```
+
+---
+
+مثلاً
+
+```text
+SectionNode
+
+    Parent
+
+    Span
+
+    PreviousSibling
+
+    NextSibling
+```
+
+---
+
+# چرا دو درخت؟
+
+چون Green Tree
+
+کاملاً قابل اشتراک است.
+
+فرض کنید
+
+```latex
+\section{A}
+
+Hello
+
+\section{B}
+```
+
+فقط
+
+```latex
+Hello
+
+↓
+
+Hello World
+```
+
+تغییر کند.
+
+Green Tree
+
+```text
+Section A
+
+Paragraph
+
+Section B
+```
+
+تنها
+
+Paragraph
+
+دوباره ساخته می‌شود.
+
+دو Section
+
+همان قبلی هستند.
+
+---
+
+# نتیجه
+
+به جای
+
+```text
+۲۰۰۰ Node
+```
+
+فقط
+
+```text
+۱ Node
+```
+
+دوباره ساخته می‌شود.
+
+---
+
+# Green Node
+
+تقریباً چیزی شبیه
+
+```ts
+interface GreenNode {
+  readonly kind: SyntaxKind;
+
+  readonly width: number;
+
+  readonly children: readonly GreenNode[];
+}
+```
+
+هیچ Parent ندارد.
+
+---
+
+# Red Node
+
+```ts
+interface RedNode {
+  readonly green: GreenNode;
+
+  readonly parent?: RedNode;
+
+  readonly start: number;
+}
+```
+
+---
+
+# Lazy Creation
+
+Red Tree
+
+اصلاً کامل ساخته نمی‌شود.
+
+فرض کنید
+
+```ts
+document.sections[10];
+```
+
+را صدا بزنیم.
+
+فقط همان قسمت ساخته می‌شود.
+
+---
+
+# نتیجه
+
+به جای
+
+```text
+200000 Node
+```
+
+ممکن است
+
+```text
+40 Node
+```
+
+واقعاً در حافظه وجود داشته باشند.
+
+---
+
+# SyntaxToken
+
+در Roslyn
+
+Token
+
+هم Node است.
+
+من هم همین کار را می‌کنم.
+
+```ts
+SyntaxToken
+
+↓
+
+GreenToken
+
+↓
+
+RedToken
+```
+
+---
+
+# Trivia
+
+این قسمت فوق‌العاده مهم است.
+
+در اکثر Parserها
+
+Comment
+
+Whitespace
+
+از بین می‌روند.
+
+اما در Formatter
+
+نباید حذف شوند.
+
+---
+
+مثلاً
+
+```latex
+Hello     World
+```
+
+Space
+
+باید حفظ شود.
+
+---
+
+یا
+
+```latex
+Hello
+% Comment
+World
+```
+
+Comment
+
+نباید گم شود.
+
+---
+
+به همین دلیل
+
+هر Token
+
+دارای Trivia خواهد بود.
+
+```text
+Leading Trivia
+
+↓
+
+Token
+
+↓
+
+Trailing Trivia
+```
+
+---
+
+مثلاً
+
+```latex
+    % comment
+\section
+```
+
+می‌شود
+
+```text
+Leading Trivia
+
+    Space
+
+    Comment
+
+Token
+
+    Section
+```
+
+---
+
+# Trivia Types
+
+```text
+Whitespace
+
+NewLine
+
+Comment
+
+IgnoredText
+
+Directive
+```
+
+---
+
+# Parser
+
+Parser
+
+دیگر String
+
+را نمی‌بیند.
+
+فقط
+
+```text
+Green Tokens
+```
+
+---
+
+# Formatter
+
+Formatter
+
+هم
+
+String
+
+را نمی‌بیند.
+
+فقط
+
+```text
+Red Tree
+```
+
+---
+
+# Visitor
+
+Visitor
+
+هم
+
+Red Tree
+
+را می‌بیند.
+
+---
+
+# Node Factory
+
+تمام Nodeها
+
+فقط
+
+از طریق Factory
+
+ساخته می‌شوند.
+
+```ts
+factory.createSection();
+
+factory.createParagraph();
+
+factory.createMath();
+```
+
+---
+
+# مزیت
+
+بعداً
+
+Undo
+
+Redo
+
+Incremental
+
+بسیار ساده می‌شوند.
+
+---
+
+# Syntax Tree
+
+در نهایت
+
+```text
+Source
+
+↓
+
+Lexer
+
+↓
+
+Green Tokens
+
+↓
+
+Green Parser
+
+↓
+
+Green Tree
+
+↓
+
+Red Tree
+
+↓
+
+Formatter
+
+↓
+
+Printer
+
+↓
+
+Output
+```
+
+---
+
+# اما این پایان ماجرا نیست...
+
+## ایده‌ای که تقریباً هیچ Formatter دنیا ندارد
+
+من اصلاً نمی‌خواهم Parser مستقیماً AST بسازد.
+
+بین Parser و AST
+
+یک لایه دیگر قرار می‌دهم.
+
+```text
+Source
+
+↓
+
+Lexer
+
+↓
+
+Parser
+
+↓
+
+CST
+      │
+      ▼
+Normalizer
+      │
+      ▼
+Semantic AST
+```
+
+---
+
+# چرا؟
+
+چون LaTeX
+
+دو مفهوم دارد.
+
+## Syntax
+
+```latex
+\section{Hello}
+```
+
+## Semantic
+
+اینکه
+
+Section
+
+یک Heading Level 1
+
+است.
+
+---
+
+پس
+
+ابتدا
+
+Concrete Syntax Tree
+
+می‌سازیم.
+
+بعد
+
+Normalizer
+
+آن را تبدیل می‌کند به
+
+Semantic AST
+
+---
+
+یعنی در پروژه ما
+
+```text
+Lexer
+
+↓
+
+Tokens
+
+↓
+
+CST
+
+↓
+
+Normalizer
+
+↓
+
+Semantic AST
+
+↓
+
+Formatter
+
+↓
+
+Printer
+```
+
+---
+
+## این تصمیم معماری بسیار مهم است
+
+با داشتن **CST و Semantic AST به‌صورت جداگانه**، قابلیت‌هایی به دست می‌آوریم که در آینده بسیار ارزشمند خواهند بود:
+
+- Formatter می‌تواند بر اساس ساختار نحوی (CST) تصمیم بگیرد که چه چیزهایی را دقیقاً حفظ کند.
+- Linter و Refactoring روی AST معنایی کار می‌کنند و لازم نیست با جزئیات نحوی درگیر شوند.
+- Pluginها می‌توانند در مرحله Normalizer معناهای جدید (مانند دستورات و محیط‌های سفارشی) را اضافه کنند.
+- اگر بخواهیم از بسته‌های مختلف LaTeX یا حتی زبان‌های وابسته مانند BibTeX و TikZ پشتیبانی کنیم، این لایه انعطاف فوق‌العاده‌ای ایجاد می‌کند.
+
+---
+
+## پیشنهاد من برای ادامه
+
+به نظر من، قبل از نوشتن حتی **یک خط کد**، باید کل معماری را با حدود **۳۰ تا ۴۰ RFC** طراحی کنیم؛ دقیقاً همان روشی که پروژه‌هایی مانند Rust، Swift و TypeScript برای تصمیم‌های مهم معماری استفاده می‌کنند.
+
+در RFC بعدی (**RFC-0005**) وارد طراحی **Parser** می‌شویم؛ اما نه یک Parser معمولی، بلکه یک **Error-Tolerant Incremental Recursive Descent Parser** که بتواند حتی هنگام ناقص بودن فایل (مثلاً وقتی کاربر هنوز در حال تایپ است) ساختار معتبری تولید کند. این ویژگی برای تجربه عالی در VS Code و Language Server حیاتی است.
+
+عالی، حالا وارد بخشی می‌شویم که به نظر من **قلب واقعی TexFmt** است.
+
+تا اینجا فقط دربارهٔ ساختمان داده‌ها صحبت کردیم. اکنون باید تصمیم بگیریم **Parser** چگونه کار کند.
+
+و اینجاست که می‌خواهم از تمام Parserهای موجود LaTeX فاصله بگیریم.
+
+---
+
+# RFC-0005 — Parser Architecture
+
+## هدف
+
+Parser فقط نباید بتواند فایل صحیح را Parse کند.
+
+باید بتواند فایل **ناقص** را نیز Parse کند.
+
+مثلاً وقتی کاربر هنوز در حال تایپ است.
+
+---
+
+فرض کنید کاربر این را نوشته است:
+
+```latex
+\section{
+```
+
+اکثر Parserها:
+
+```
+Exception
+```
+
+اما Parser ما باید تولید کند:
+
+```text
+Document
+ └── Section
+      └── MissingArgument
+```
+
+نه Exception.
+
+---
+
+# اصل اول
+
+Parser هیچ‌وقت Crash نمی‌کند.
+
+همیشه Tree تولید می‌کند.
+
+```text
+Source
+
+↓
+
+Parser
+
+↓
+
+Syntax Tree
+```
+
+حتی اگر فایل کاملاً خراب باشد.
+
+---
+
+# Parser Pipeline
+
+```text
+Source
+
+↓
+
+Lexer
+
+↓
+
+Token Stream
+
+↓
+
+Parser
+
+↓
+
+Concrete Syntax Tree (CST)
+
+↓
+
+Normalizer
+
+↓
+
+Semantic AST
+```
+
+---
+
+# چرا CST؟
+
+فرض کنید ورودی:
+
+```latex
+\section{Hello
+```
+
+از نظر نحوی ناقص است.
+
+اما Formatter باید بداند که:
+
+- یک `{` دیده شده.
+- `}` وجود ندارد.
+- این خطا از کجا شروع شده.
+
+AST این اطلاعات را معمولاً نگه نمی‌دارد.
+
+CST نگه می‌دارد.
+
+---
+
+# Parser Style
+
+من **Recursive Descent Parser** را انتخاب می‌کنم.
+
+نه LR
+
+نه LALR
+
+نه PEG
+
+---
+
+چرا؟
+
+چون LaTeX یک زبان Context-Free ساده نیست.
+
+وجود Macroها باعث می‌شود Grammar دائماً تغییر کند.
+
+Recursive Descent بسیار انعطاف‌پذیرتر است.
+
+---
+
+ساختار Parser
+
+```text
+parseDocument()
+
+    ↓
+
+parseBlock()
+
+    ↓
+
+parseCommand()
+
+    ↓
+
+parseArgument()
+
+    ↓
+
+parseEnvironment()
+```
+
+هر تابع فقط یک مسئولیت دارد.
+
+---
+
+# Parse Context
+
+Parser همیشه Context دارد.
+
+مثلاً
+
+```latex
+\begin{align}
+```
+
+از این لحظه Context عوض می‌شود.
+
+```text
+Document Context
+
+↓
+
+Math Context
+```
+
+---
+
+بنابراین Parser فقط Token نمی‌بیند.
+
+Context هم می‌بیند.
+
+---
+
+# Registry Driven Parsing
+
+یکی از مهم‌ترین تصمیم‌ها.
+
+Parser هیچ Command را نمی‌شناسد.
+
+مثلاً
+
+```latex
+\section
+```
+
+برای Parser فقط:
+
+```
+COMMAND
+```
+
+است.
+
+Registry تصمیم می‌گیرد.
+
+```text
+Registry
+
+↓
+
+section
+
+↓
+
+Parser Rule
+```
+
+---
+
+بنابراین اگر Plugin اضافه کند:
+
+```latex
+\MyCompanyHeading
+```
+
+Parser نیازی به تغییر ندارد.
+
+---
+
+# Parse Rules
+
+هر Rule یک Interface دارد.
+
+```ts
+interface ParseRule {
+  parse(parser: Parser): Node;
+}
+```
+
+---
+
+Section Rule
+
+```text
+COMMAND(section)
+
+↓
+
+SectionRule
+
+↓
+
+SectionNode
+```
+
+---
+
+Environment Rule
+
+```text
+COMMAND(begin)
+
+↓
+
+EnvironmentRule
+
+↓
+
+EnvironmentNode
+```
+
+---
+
+# Error Recovery
+
+یکی از مهم‌ترین ویژگی‌ها.
+
+فرض کنید:
+
+```latex
+\begin{itemize}
+
+\item A
+
+\section
+
+\end{itemize}
+```
+
+Parser نباید متوقف شود.
+
+بلکه:
+
+```text
+Environment
+
+    Item
+
+    Error
+
+EndEnvironment
+```
+
+تولید کند.
+
+---
+
+# Missing Tokens
+
+Roslyn یک ایده فوق‌العاده دارد.
+
+اگر
+
+```
+}
+```
+
+وجود نداشت
+
+Parser خودش یک Token می‌سازد.
+
+```text
+Missing CloseBrace
+```
+
+نه اینکه Parse را متوقف کند.
+
+---
+
+# Skipped Tokens
+
+مثلاً
+
+```latex
+\section }}} Hello
+```
+
+سه `}` اضافه داریم.
+
+آن‌ها حذف نمی‌شوند.
+
+بلکه
+
+```text
+SkippedTokens
+```
+
+می‌شوند.
+
+Formatter بعداً تصمیم می‌گیرد.
+
+---
+
+# LookAhead
+
+Parser فقط Token فعلی را نمی‌بیند.
+
+```text
+Current
+
+↓
+
+Next
+
+↓
+
+NextNext
+```
+
+گاهی لازم است ۵ Token جلوتر را ببینیم.
+
+---
+
+# Parser Transactions
+
+برای Backtracking.
+
+```text
+Begin
+
+↓
+
+Try Parse
+
+↓
+
+Success
+
+↓
+
+Commit
+
+یا
+
+Rollback
+```
+
+این قابلیت برای Macroهای پیچیده ضروری است.
+
+---
+
+# Incremental Parse
+
+فرض کنید فایل:
+
+```text
+6000 lines
+```
+
+است.
+
+کاربر فقط این را تغییر می‌دهد:
+
+```latex
+\section
+```
+
+↓
+
+```latex
+\chapter
+```
+
+نباید کل فایل دوباره Parse شود.
+
+فقط همان Subtree.
+
+---
+
+# Tree Reuse
+
+```text
+Old Tree
+
+↓
+
+Reuse
+
+↓
+
+New Tree
+```
+
+۹۹٪ Nodeها همان قبلی هستند.
+
+---
+
+# Diagnostics
+
+Parser همزمان Diagnostic تولید می‌کند.
+
+```text
+Unexpected }
+
+Missing }
+
+Unexpected EndEnvironment
+```
+
+---
+
+# Parse Session
+
+هر Parse یک Session است.
+
+```ts
+ParseSession
+
+↓
+
+SourceFile
+
+↓
+
+Diagnostics
+
+↓
+
+Tree
+
+↓
+
+Performance
+```
+
+---
+
+# Performance Metrics
+
+از روز اول اندازه می‌گیریم.
+
+```text
+Lexer
+
+12 ms
+
+Parser
+
+19 ms
+
+Normalizer
+
+3 ms
+
+Printer
+
+11 ms
+```
+
+---
+
+# Parser API
+
+من API را بسیار کوچک نگه می‌دارم.
+
+```ts
+parse();
+
+parseDocument();
+
+parseNode();
+
+parseExpression();
+
+recover();
+
+lookAhead();
+
+consume();
+
+expect();
+```
+
+بیشتر از این لازم نیست.
+
+---
+
+# اما مهم‌ترین ایده‌ای که می‌خواهم اضافه کنیم
+
+اینجا جایی است که می‌توانیم از همه Formatterهای موجود جلو بزنیم.
+
+من یک لایه به نام **Semantic Model** اضافه می‌کنم.
+
+```text
+Source
+
+↓
+
+Lexer
+
+↓
+
+Parser
+
+↓
+
+CST
+
+↓
+
+Semantic Model
+
+↓
+
+Formatter
+```
+
+---
+
+## Semantic Model چیست؟
+
+مثلاً
+
+```latex
+\section{Introduction}
+```
+
+در CST فقط یک Command است.
+
+اما در Semantic Model:
+
+```text
+Heading
+
+Level = 1
+
+Title = "Introduction"
+```
+
+یا
+
+```latex
+\label{sec:intro}
+```
+
+در Semantic Model:
+
+```text
+Symbol Definition
+```
+
+و
+
+```latex
+\ref{sec:intro}
+```
+
+می‌شود:
+
+```text
+Symbol Reference
+```
+
+---
+
+### چرا این فوق‌العاده است؟
+
+چون از این لحظه می‌توانیم قابلیت‌هایی داشته باشیم که امروز تقریباً هیچ ابزار LaTeX ندارد:
+
+- Rename Symbol (تغییر نام خودکار `\label` و همه `\ref`ها)
+- Go to Definition
+- Find All References
+- Outline واقعی سند
+- Code Actions
+- تشخیص لینک‌های شکسته
+- تشخیص `\cite`های بدون مرجع
+- Refactoring ساختاری
+
+---
+
+## نتیجه
+
+در این نقطه دیگر در حال ساخت یک Formatter نیستیم؛ در حال ساخت **اولین Compiler Platform مدرن برای LaTeX با معماری TypeScript** هستیم.
+
+### پیشنهاد مسیر ادامه
+
+از اینجا به بعد، قبل از پیاده‌سازی، وارد **RFC-0006: Semantic Model & Symbol Table** می‌شویم. این بخش زیرساخت تمام قابلیت‌های هوشمند (LSP، Refactoring، Diagnostics، Navigation و حتی افزونه‌های آینده) را تعریف می‌کند. اگر این لایه از ابتدا درست طراحی شود، اضافه کردن امکانات جدید در آینده بسیار ساده و بدون تغییر هسته خواهد بود.
+
+عالی، حالا وارد جایی می‌شویم که به نظر من **TexFmt از یک Formatter به یک Compiler Platform واقعی تبدیل می‌شود.**
+
+تا اینجا داریم شبیه TypeScript Compiler جلو می‌رویم، اما از اینجا به بعد وارد قلمرو Roslyn می‌شویم.
+
+---
+
+# RFC-0006 — Semantic Model
+
+## هدف
+
+Parser فقط می‌داند فایل چگونه نوشته شده است.
+
+Semantic Model می‌فهمد فایل **چه معنایی دارد.**
+
+---
+
+مثال
+
+```latex
+\section{Introduction}
+
+\label{sec:intro}
+
+See Section~\ref{sec:intro}.
+```
+
+Parser فقط می‌بیند
+
+```text
+Command
+
+Argument
+
+Command
+
+Argument
+
+Command
+
+Argument
+```
+
+اما Semantic Model تولید می‌کند
+
+```text
+Document
+
+ Section
+
+   Symbol(sec:intro)
+
+ Reference
+
+   -> Symbol(sec:intro)
+```
+
+---
+
+# Compiler Pipeline
+
+از این لحظه Pipeline واقعی Compiler شکل می‌گیرد.
+
+```text
+                Source
+                   │
+                   ▼
+               Character Stream
+                   │
+                   ▼
+                 Lexer
+                   │
+                   ▼
+                Tokens
+                   │
+                   ▼
+                 Parser
+                   │
+                   ▼
+                  CST
+                   │
+                   ▼
+              Normalizer
+                   │
+                   ▼
+            Semantic AST
+                   │
+                   ▼
+            Symbol Binder
+                   │
+                   ▼
+            Semantic Model
+                   │
+        ┌──────────┼─────────────┐
+        │          │             │
+        ▼          ▼             ▼
+   Formatter    Linter        Language Server
+```
+
+---
+
+# Symbol Table
+
+اولین ساختمان داده مهم
+
+```text
+Document
+
+↓
+
+Symbols
+```
+
+---
+
+مثلاً
+
+```latex
+\label{fig:test}
+
+\label{tbl:users}
+
+\label{eq:maxwell}
+```
+
+تبدیل می‌شود به
+
+```text
+Symbol Table
+
+fig:test
+
+tbl:users
+
+eq:maxwell
+```
+
+---
+
+# Symbol
+
+```ts
+interface Symbol {
+  readonly id: SymbolId;
+
+  readonly name: string;
+
+  readonly kind: SymbolKind;
+
+  readonly node: SyntaxNode;
+}
+```
+
+---
+
+# SymbolKind
+
+```ts
+enum SymbolKind {
+  Label,
+
+  Citation,
+
+  BibEntry,
+
+  Command,
+
+  Environment,
+
+  Counter,
+
+  Length,
+
+  Glossary,
+
+  Acronym,
+}
+```
+
+---
+
+# Reference
+
+وقتی Parser می‌بیند
+
+```latex
+\ref{fig:test}
+```
+
+Semantic Model
+
+می‌گوید
+
+```text
+Reference
+
+↓
+
+fig:test
+```
+
+---
+
+# Binder
+
+Binder
+
+تمام Symbolها را به هم وصل می‌کند.
+
+```text
+Definitions
+
+↓
+
+References
+
+↓
+
+Resolved Links
+```
+
+---
+
+اگر
+
+```latex
+\ref{abc}
+```
+
+وجود داشته باشد
+
+ولی
+
+```latex
+\label{abc}
+```
+
+وجود نداشته باشد
+
+Binder
+
+Diagnostic تولید می‌کند.
+
+---
+
+# Diagnostics
+
+```text
+Undefined Label
+
+Duplicate Label
+
+Unused Label
+
+Undefined Citation
+
+Unused Command
+
+Duplicate Command
+```
+
+---
+
+# مثال
+
+```latex
+\label{fig:test}
+
+\label{fig:test}
+```
+
+↓
+
+```text
+Duplicate Label
+
+fig:test
+```
+
+---
+
+# Document Model
+
+Semantic Model
+
+فقط Symbol ندارد.
+
+ساختار سند را هم دارد.
+
+```text
+Document
+
+ Sections
+
+ Figures
+
+ Tables
+
+ Equations
+
+ Bibliography
+
+ Appendices
+```
+
+---
+
+مثلاً
+
+```latex
+\section
+
+\subsection
+
+\paragraph
+```
+
+تبدیل می‌شوند به
+
+```text
+Heading
+
+Level=1
+
+Heading
+
+Level=2
+
+Heading
+
+Level=4
+```
+
+---
+
+# Outline
+
+VS Code
+
+دیگر لازم نیست Parser را دوباره اجرا کند.
+
+فقط
+
+```text
+Semantic Model
+
+↓
+
+Outline
+```
+
+---
+
+# Folding
+
+```latex
+\begin{itemize}
+
+...
+
+\end{itemize}
+```
+
+↓
+
+```text
+Fold Region
+```
+
+---
+
+# Rename
+
+فرض کنید
+
+```latex
+\label{fig:test}
+```
+
+را Rename کنیم.
+
+Semantic Model
+
+تمام
+
+```latex
+\ref{fig:test}
+```
+
+ها را پیدا می‌کند.
+
+---
+
+# Hover
+
+روی
+
+```latex
+\ref{fig:test}
+```
+
+Hover
+
+↓
+
+```text
+Figure 12
+
+Page 83
+
+Defined at line 152
+```
+
+---
+
+# Go To Definition
+
+```latex
+\ref{abc}
+```
+
+↓
+
+```latex
+\label{abc}
+```
+
+---
+
+# Find References
+
+```text
+Definition
+
+↓
+
+Reference 1
+
+Reference 2
+
+Reference 3
+```
+
+---
+
+# Semantic Tokens
+
+برای VS Code
+
+```text
+Heading
+
+Label
+
+Citation
+
+Environment
+
+Math
+
+Command
+```
+
+همه رنگ مخصوص خود را دارند.
+
+---
+
+# Cross File Symbol Table
+
+اینجا پروژه از یک Formatter فراتر می‌رود.
+
+```text
+chapter1.tex
+
+chapter2.tex
+
+appendix.tex
+
+references.bib
+```
+
+همه در یک Workspace دیده می‌شوند.
+
+---
+
+# Workspace
+
+```text
+Workspace
+
+↓
+
+Projects
+
+↓
+
+Documents
+
+↓
+
+Semantic Model
+```
+
+---
+
+# Project
+
+```latex
+\include
+
+\input
+```
+
+همه Resolve می‌شوند.
+
+---
+
+# Dependency Graph
+
+```text
+main.tex
+
+│
+
+├── chapter1.tex
+
+├── chapter2.tex
+
+└── appendix.tex
+```
+
+---
+
+# Incremental Semantic Analysis
+
+اگر
+
+```text
+chapter2.tex
+```
+
+تغییر کند
+
+Semantic کل پروژه دوباره ساخته نمی‌شود.
+
+فقط
+
+```text
+chapter2
+```
+
+و وابستگی‌هایش.
+
+---
+
+# Semantic Cache
+
+```text
+AST
+
+↓
+
+Hash
+
+↓
+
+Cache
+
+↓
+
+Reuse
+```
+
+---
+
+# Symbol Index
+
+بعداً
+
+Workspace
+
+دارای Index خواهد بود.
+
+```text
+500 Labels
+
+300 Citations
+
+42 Commands
+
+18 Glossaries
+```
+
+---
+
+# اما حالا می‌خواهم بزرگ‌ترین تفاوت TexFmt با تمام پروژه‌های موجود را پیشنهاد بدهم...
+
+---
+
+# RFC-0007 — Package System (انقلابی‌ترین بخش پروژه)
+
+اکثر ابزارهای LaTeX **هیچ شناختی از Packageها ندارند**.
+
+مثلاً
+
+```latex
+\usepackage{tikz}
+```
+
+برای آن‌ها فقط یک Command است.
+
+اما ما یک **Package Registry** خواهیم داشت.
+
+```text
+Package Registry
+
+↓
+
+tikz
+
+↓
+
+Commands
+
+Environments
+
+Keys
+
+Options
+
+Documentation
+```
+
+مثلاً Plugin مربوط به TikZ ثبت می‌کند:
+
+```text
+Package: tikz
+
+Commands:
+    \draw
+    \fill
+    \path
+
+Environments:
+    tikzpicture
+
+Keys:
+    thick
+    dashed
+    blue
+```
+
+در نتیجه بدون Hardcode کردن چیزی در هسته، TexFmt می‌تواند:
+
+- فرمت اختصاصی هر Package را انجام دهد.
+- Completion دقیق ارائه دهد.
+- آرگومان‌ها را اعتبارسنجی کند.
+- گزینه‌های اشتباه را تشخیص دهد.
+- مستندات همان Package را در Hover نمایش دهد.
+
+---
+
+## اینجاست که پروژه از «Prettier برای LaTeX» عبور می‌کند.
+
+در واقع در حال طراحی چیزی شبیه **TypeScript Compiler + Roslyn + ESLint + VS Code Language Server** برای اکوسیستم LaTeX هستیم.
+
+و به نظر من، این همان چیزی است که سال‌ها در اکوسیستم LaTeX جای خالی آن احساس می‌شود.
+
+عالی، حالا به جایی می‌رسیم که به نظر من **بزرگ‌ترین تفاوت TexFmt با تمام Formatterهای دنیا** خواهد بود.
+
+از این RFC به بعد دیگر صرفاً درباره LaTeX صحبت نمی‌کنیم؛ درباره **Platform Architecture** صحبت می‌کنیم.
+
+---
+
+# RFC-0008 — Package System
+
+## فلسفه
+
+امروز تقریباً تمام Formatterهای LaTeX اینگونه هستند:
+
+```text
+Formatter
+
+↓
+
+if command == section
+
+↓
+
+format()
+```
+
+یعنی همه چیز Hardcode شده است.
+
+---
+
+من می‌خواهم هسته پروژه **هیچ شناختی از LaTeX نداشته باشد.**
+
+بله، حتی `\section` را هم نشناسد.
+
+---
+
+## Core فقط این را می‌شناسد
+
+```text
+Command
+
+Environment
+
+Argument
+
+Group
+
+Math
+
+Comment
+```
+
+همین.
+
+---
+
+# شناخت واقعی در Packageها قرار می‌گیرد.
+
+مثلاً
+
+```latex
+\section{Hello}
+```
+
+هسته فقط می‌بیند
+
+```text
+Command
+
+↓
+
+name = "section"
+```
+
+بعد Registry تصمیم می‌گیرد.
+
+---
+
+# Package Registry
+
+```text
+Registry
+
+    article
+
+    report
+
+    book
+
+    amsmath
+
+    tikz
+
+    beamer
+
+    minted
+
+    biblatex
+
+    cleveref
+
+    hyperref
+
+    siunitx
+```
+
+---
+
+هر Package یک Plugin است.
+
+---
+
+# Plugin Interface
+
+```ts
+interface PackagePlugin {
+  readonly name: string;
+
+  readonly version: string;
+
+  commands(): CommandDefinition[];
+
+  environments(): EnvironmentDefinition[];
+
+  diagnostics(): DiagnosticRule[];
+
+  printer(): PrinterExtension;
+
+  semantic(): SemanticExtension;
+}
+```
+
+---
+
+مثلاً
+
+TikZ
+
+```text
+TikZ Plugin
+
+↓
+
+Commands
+
+↓
+
+draw
+
+fill
+
+path
+
+node
+```
+
+---
+
+# Command Definition
+
+```ts
+interface CommandDefinition {
+  name: string;
+
+  arguments: ArgumentDefinition[];
+}
+```
+
+---
+
+مثلاً
+
+```latex
+\section[Short]{Long}
+```
+
+تعریف
+
+```text
+section
+
+optional
+
+required
+```
+
+---
+
+# Argument Definition
+
+```ts
+interface ArgumentDefinition {
+  kind: Required;
+
+  Optional;
+
+  KeyValue;
+
+  Star;
+}
+```
+
+---
+
+مثلاً
+
+```latex
+\section*{Hello}
+```
+
+دارای
+
+```text
+Star Argument
+```
+
+است.
+
+---
+
+# Environment
+
+```latex
+\begin{itemize}
+```
+
+تعریف
+
+```text
+Environment
+
+↓
+
+itemize
+```
+
+---
+
+# Environment Plugin
+
+```ts
+interface EnvironmentDefinition {
+  name: string;
+
+  parser();
+
+  printer();
+}
+```
+
+---
+
+مثلاً
+
+align
+
+Printer مخصوص خودش را دارد.
+
+---
+
+# Printer Extension
+
+```latex
+\begin{align}
+a &= b+c
+\end{align}
+```
+
+Formatter عادی
+
+اصلاً نمی‌فهمد
+
+`&`
+
+برای چیست.
+
+اما
+
+AmsMath Plugin
+
+می‌داند.
+
+---
+
+# بنابراین
+
+```text
+Formatter
+
+↓
+
+Plugin Printer
+
+↓
+
+Align Columns
+```
+
+---
+
+# TikZ
+
+مثلاً
+
+```latex
+\draw(0,0)--(1,1);
+```
+
+Plugin
+
+می‌تواند
+
+```latex
+\draw
+    (0,0)
+    --
+    (1,1);
+```
+
+تولید کند.
+
+---
+
+# Package Metadata
+
+هر Package
+
+Metadata دارد.
+
+```ts
+interface PackageMetadata {
+  name;
+
+  author;
+
+  version;
+
+  documentation;
+
+  website;
+}
+```
+
+---
+
+# Hover
+
+روی
+
+```latex
+\draw
+```
+
+Hover
+
+↓
+
+```text
+Draws a path.
+```
+
+---
+
+# Completion
+
+وقتی
+
+```latex
+\beg
+```
+
+می‌نویسیم
+
+↓
+
+```text
+begin
+```
+
+---
+
+وقتی
+
+```latex
+\usepackage{
+```
+
+↓
+
+```text
+tikz
+
+amsmath
+
+geometry
+
+hyperref
+```
+
+---
+
+# Package Loader
+
+```text
+Document
+
+↓
+
+usepackage
+
+↓
+
+Registry
+
+↓
+
+Load Plugin
+```
+
+---
+
+مثلاً
+
+```latex
+\usepackage{tikz}
+```
+
+↓
+
+```text
+Load TikZ Plugin
+```
+
+---
+
+# Lazy Loading
+
+Pluginها
+
+همه با هم Load نمی‌شوند.
+
+فقط
+
+وقتی لازم باشد.
+
+---
+
+# Registry API
+
+```ts
+registry.register();
+
+registry.unregister();
+
+registry.resolve();
+
+registry.findCommand();
+
+registry.findEnvironment();
+```
+
+---
+
+# Dependency
+
+Packageها
+
+Dependency دارند.
+
+```text
+beamer
+
+↓
+
+xcolor
+
+↓
+
+graphicx
+```
+
+Registry
+
+خودش Resolve می‌کند.
+
+---
+
+# Version
+
+```latex
+\usepackage{tikz}
+```
+
+↓
+
+```text
+Version
+
+3.1.10
+```
+
+---
+
+بعداً
+
+Diagnostic
+
+می‌دهد.
+
+```text
+Plugin supports
+
+3.0+
+
+Current
+
+2.9
+```
+
+---
+
+# Community Plugin
+
+هر کسی
+
+بتواند بنویسد.
+
+```text
+@texfmt/plugin-tikz
+
+@texfmt/plugin-beamer
+
+@texfmt/plugin-ieee
+
+@texfmt/plugin-acm
+
+@texfmt/plugin-chemfig
+```
+
+---
+
+# Package Manifest
+
+هر Plugin
+
+Manifest دارد.
+
+```json
+{
+    "name":"tikz",
+
+    "version":"1.0.0",
+
+    "latex":"3.0",
+
+    "commands":[...]
+
+}
+```
+
+---
+
+# اما من یک قدم جلوتر می‌روم...
+
+---
+
+# RFC-0009 — Grammar Engine
+
+تا اینجا هنوز Parser تا حدی Ruleهای LaTeX را می‌شناسد.
+
+اما من می‌خواهم **Grammar هم Plugin باشد.**
+
+---
+
+یعنی
+
+به جای
+
+```text
+Parser
+
+↓
+
+if(section)
+```
+
+داشته باشیم
+
+```text
+Grammar
+
+↓
+
+Parser
+```
+
+---
+
+## مثال
+
+Package
+
+ثبت می‌کند
+
+```text
+Grammar
+
+↓
+
+Command
+
+↓
+
+Arguments
+
+↓
+
+Star
+
+↓
+
+Options
+```
+
+Parser
+
+فقط Grammar را اجرا می‌کند.
+
+---
+
+# نتیجه
+
+بدون تغییر Parser
+
+می‌توانیم
+
+- TikZ
+- PSTricks
+- CircuitTikZ
+- Beamer
+- PGFPlots
+- LuaLaTeX
+- XeLaTeX
+- حتی زبان‌های جدید مبتنی بر TeX
+
+را اضافه کنیم.
+
+---
+
+# و حالا ایده‌ای که فکر می‌کنم پروژه را واقعاً متمایز می‌کند
+
+من پیشنهاد می‌کنم **TexFmt را از ابتدا بر پایه "Language Definition" طراحی کنیم، نه "LaTeX Definition".**
+
+یعنی هسته فقط مفاهیم عمومی را بشناسد و خود LaTeX هم یک بسته (`@texfmt/lang-latex`) باشد.
+
+```text
+packages/
+
+    core/
+
+    parser/
+
+    formatter/
+
+    language-api/
+
+    lang-latex/
+
+    lang-bibtex/
+
+    lang-plaintex/
+
+    lang-context/
+
+    plugin-tikz/
+
+    plugin-beamer/
+```
+
+این تصمیم سه مزیت بزرگ دارد:
+
+1. **Plain TeX** و **LaTeX** دو زبان مجزا ولی روی یک هسته خواهند بود.
+2. در آینده می‌توان از همان زیرساخت برای **BibTeX**، **BibLaTeX**، **ConTeXt** و حتی زبان‌های سفارشی مبتنی بر TeX استفاده کرد.
+3. هسته پروژه کاملاً مستقل، کوچک و قابل نگهداری باقی می‌ماند.
+
+---
+
+## پیشنهاد مهم قبل از شروع کدنویسی
+
+در این مرحله، من دیگر وارد نوشتن کد نمی‌شوم. تجربه نشان داده است که در پروژه‌هایی با این مقیاس، اگر معماری کامل از ابتدا مشخص نباشد، بعد از چند ماه مجبور به بازنویسی بخش‌های اصلی می‌شویم.
+
+پیشنهاد من این است که ابتدا حدود **۲۵ تا ۳۰ RFC** را کامل کنیم و سپس وارد پیاده‌سازی شویم. در پایان این مرحله، یک معماری در حد پروژه‌های **TypeScript**، **ESLint** و **Roslyn** خواهیم داشت و بعد از آن کدنویسی با اطمینان و سرعت بسیار بیشتری پیش خواهد رفت.
+
+حتماً. این‌طوری بهتر هم هست.
+
+با توجه به بزرگی پروژه، از این به بعد من **خودم RFCها را پشت سر هم می‌نویسم** و فقط وقتی به یک **Milestone معماری** برسیم وقفه می‌دهم. دیگر لازم نیست بعد از هر RFC بنویسید «ادامه».
+
+اتفاقاً اگر بخواهیم این پروژه در حد **TypeScript** یا **Rust** باشد، باید همین روش را پیش برویم.
+
+---
+
+# Roadmap Architecture
+
+```text
+RFC-0001  Vision
+RFC-0002  AST
+RFC-0003  Lexer
+RFC-0004  Green Tree
+RFC-0005  Parser
+RFC-0006  Semantic Model
+RFC-0007  Symbol Table
+RFC-0008  Package System
+RFC-0009  Grammar Engine
+──────────────────────────────
+Milestone 1
+──────────────────────────────
+RFC-0010  Printer Engine
+RFC-0011  Formatting Algorithm
+RFC-0012  Comment Attachment
+RFC-0013  Line Breaking
+RFC-0014  Doc Builder
+RFC-0015  Configuration
+RFC-0016  Plugin API
+RFC-0017  Diagnostics
+RFC-0018  Linter
+RFC-0019  Code Actions
+──────────────────────────────
+Milestone 2
+──────────────────────────────
+RFC-0020  Workspace
+RFC-0021  Project System
+RFC-0022  File System
+RFC-0023  Cache
+RFC-0024  Incremental Parser
+RFC-0025  Incremental Formatter
+RFC-0026  Scheduler
+RFC-0027  Performance
+RFC-0028  Benchmark
+RFC-0029  Memory Layout
+──────────────────────────────
+Milestone 3
+──────────────────────────────
+RFC-0030  Language Server
+RFC-0031  VSCode
+RFC-0032  Hover
+RFC-0033  Completion
+RFC-0034  Rename
+RFC-0035  Go To Definition
+RFC-0036  Find References
+RFC-0037  Outline
+RFC-0038  Folding
+RFC-0039  Semantic Tokens
+──────────────────────────────
+Milestone 4
+──────────────────────────────
+RFC-0040  CLI
+RFC-0041  Configuration Loader
+RFC-0042  npm Packages
+RFC-0043  Release
+RFC-0044  Testing
+RFC-0045  Fuzz Testing
+RFC-0046  Documentation
+RFC-0047  Playground
+RFC-0048  Website
+RFC-0049  Version 1.0
+```
+
+این فقط معماری است.
+
+بعد از آن تازه وارد کدنویسی می‌شویم.
+
+---
+
+# اما...
+
+من می‌خواهم یک تغییر بسیار بزرگ در طراحی بدهم.
+
+در تمام RFCهای قبلی هنوز شبیه Prettier فکر می‌کردیم.
+
+من اصلاً دیگر نمی‌خواهم پروژه را شبیه Prettier طراحی کنم.
+
+---
+
+# RFC-0010 — Document Engine
+
+اینجا اولین تفاوت اساسی ایجاد می‌شود.
+
+Prettier این کار را انجام می‌دهد:
+
+```text
+AST
+
+↓
+
+Doc Tree
+
+↓
+
+Printer
+
+↓
+
+String
+```
+
+ولی این معماری محدودیت دارد.
+
+---
+
+من پیشنهاد می‌کنم یک لایه جدید اضافه کنیم.
+
+```text
+AST
+
+↓
+
+Layout Tree
+
+↓
+
+Constraint Solver
+
+↓
+
+Document Tree
+
+↓
+
+Printer
+```
+
+---
+
+یعنی Formatter مستقیماً String تولید نکند.
+
+ابتدا یک **Layout Model** تولید کند.
+
+---
+
+مثلاً
+
+```latex
+\section{Introduction}
+```
+
+به جای چاپ مستقیم
+
+ابتدا
+
+```text
+Heading
+
+Level=1
+
+MarginTop=2
+
+MarginBottom=1
+
+KeepWithNext=true
+```
+
+تولید شود.
+
+---
+
+بعد Printer تصمیم بگیرد.
+
+---
+
+# مزیت
+
+بعداً می‌توانیم
+
+```text
+Journal Style
+
+↓
+
+IEEE
+```
+
+یا
+
+```text
+ACM
+```
+
+یا
+
+```text
+Springer
+```
+
+را فقط با عوض کردن Theme پیاده‌سازی کنیم.
+
+---
+
+# یعنی
+
+Formatting
+
+از
+
+Rendering
+
+جدا می‌شود.
+
+---
+
+# Rendering Pipeline
+
+```text
+Semantic AST
+
+↓
+
+Layout Tree
+
+↓
+
+Constraint Solver
+
+↓
+
+Document Tree
+
+↓
+
+Renderer
+```
+
+---
+
+Renderer
+
+ممکن است
+
+```text
+LaTeX
+```
+
+باشد.
+
+یا
+
+```text
+Markdown
+```
+
+یا
+
+```text
+HTML
+```
+
+یا
+
+```text
+PDF Preview
+```
+
+---
+
+یعنی Formatter ما
+
+در واقع
+
+یک Layout Engine
+
+خواهد بود.
+
+---
+
+# Layout Node
+
+```text
+Paragraph
+
+Heading
+
+Table
+
+Figure
+
+Equation
+
+List
+
+Item
+
+Caption
+```
+
+---
+
+دیگر
+
+```text
+Command
+```
+
+مهم نیست.
+
+---
+
+مثلاً
+
+```latex
+\section
+```
+
+↓
+
+```text
+Heading
+```
+
+---
+
+و
+
+```latex
+\chapter
+```
+
+هم
+
+↓
+
+```text
+Heading
+```
+
+---
+
+فقط
+
+Level
+
+فرق می‌کند.
+
+---
+
+# Constraint Solver
+
+اینجا بخش جذاب پروژه است.
+
+مثلاً
+
+```text
+Heading
+
+Keep With Next
+
+Minimum Blank Line
+
+Maximum Width
+```
+
+---
+
+یا
+
+Equation
+
+```text
+Never Split
+```
+
+---
+
+یا
+
+Paragraph
+
+```text
+Prefer Wrap
+
+Not Force Wrap
+```
+
+---
+
+این همان چیزی است که Word و InDesign انجام می‌دهند.
+
+---
+
+# Layout Rules
+
+هر Package
+
+Rule خودش را دارد.
+
+مثلاً
+
+TikZ
+
+```text
+Never Wrap
+```
+
+---
+
+Equation
+
+```text
+Align Columns
+```
+
+---
+
+Table
+
+```text
+Align Cells
+```
+
+---
+
+# Theme
+
+```text
+IEEE
+
+↓
+
+Heading
+
+↓
+
+Top Margin
+
+↓
+
+2
+```
+
+---
+
+Springer
+
+↓
+
+```text
+Top Margin
+
+1
+```
+
+---
+
+بدون تغییر Formatter.
+
+---
+
+# Document Model
+
+```text
+Document
+
+    Chapter
+
+        Section
+
+            Paragraph
+
+            Figure
+
+            Table
+
+            Equation
+```
+
+---
+
+این مدل دیگر مخصوص LaTeX نیست.
+
+---
+
+بلکه مخصوص سند است.
+
+---
+
+# نتیجه
+
+از این لحظه
+
+TexFmt
+
+دیگر
+
+یک Formatter نیست.
+
+---
+
+بلکه
+
+یک
+
+**Document Layout Engine**
+
+است.
+
+---
+
+و این دقیقاً جایی است که از تمام پروژه‌های موجود جدا می‌شود.
+
+---
+
+# RFC-0011 — Universal Intermediate Representation (UIR)
+
+من حتی از Layout Tree هم یک قدم جلوتر می‌روم.
+
+همان‌طور که LLVM یک **IR (Intermediate Representation)** برای زبان‌های برنامه‌نویسی دارد، ما هم یک **UIR** برای اسناد تعریف می‌کنیم.
+
+```text
+LaTeX
+       \
+Markdown \
+RST      ---> UIR ---> Formatter / Renderer / Linter
+AsciiDoc /
+HTML    /
+```
+
+UIR شامل مفاهیمی مانند:
+
+```text
+Document
+Heading
+Paragraph
+InlineText
+Emphasis
+Strong
+Code
+Math
+Table
+Figure
+Caption
+Footnote
+Citation
+Reference
+List
+ListItem
+Quote
+```
+
+خواهد بود.
+
+مزیت این تصمیم:
+
+- یک موتور فرمت برای چندین زبان نشانه‌گذاری.
+- تبدیل بین قالب‌ها (LaTeX ↔ Markdown ↔ HTML) روی یک هسته مشترک.
+- توسعه‌پذیری بسیار بیشتر نسبت به طراحی وابسته به LaTeX.
+
+---
+
+# RFC-0012 — Workspace Graph
+
+در پروژه‌های بزرگ، یک فایل LaTeX به‌تنهایی معنا ندارد.
+
+ما یک گراف وابستگی تعریف می‌کنیم:
+
+```text
+Workspace
+    │
+    ├── Project
+    │     ├── main.tex
+    │     ├── chapter1.tex
+    │     ├── chapter2.tex
+    │     ├── appendix.tex
+    │     └── references.bib
+    │
+    ├── Packages
+    ├── Resources (Images)
+    └── Build Configuration
+```
+
+به این ترتیب:
+
+- تغییر یک فایل فقط همان شاخه را دوباره تحلیل می‌کند.
+- LSP کل Workspace را می‌شناسد.
+- Refactoring بین فایل‌ها امکان‌پذیر می‌شود.
+
+---
+
+## ⏸️ اولین توقف برنامه‌ریزی‌شده (Milestone 1)
+
+در این نقطه حدود **۱۲ RFC** پایه را طراحی کرده‌ایم و تصویر کلی سیستم مشخص شده است.
+
+در مرحله بعد، وارد بخشی می‌شویم که بیشترین پیچیدگی فنی را دارد:
+
+- طراحی **Printer Engine** الهام‌گرفته از Prettier اما توسعه‌یافته‌تر.
+- الگوریتم شکستن خطوط (Line Breaking).
+- مدیریت Commentها.
+- طراحی Doc IR.
+- الگوریتم‌های بهینه‌سازی خروجی.
+- سیستم Rule Engine برای فرمت‌دهی.
+- سیستم Diagnostics و Linter.
+
+از آنجا به بعد، عملاً وارد طراحی موتور اصلی Formatter خواهیم شد و سپس می‌توانیم با اطمینان وارد پیاده‌سازی واقعی Monorepo شویم.
+
+عالی، از اینجا وارد بخشی می‌شویم که به نظر من **مهم‌ترین بخش کل پروژه** است.
+
+تا اینجا معماری را طراحی کردیم. اما از این لحظه داریم چیزی را طراحی می‌کنیم که کیفیت خروجی Formatter را تعیین می‌کند.
+
+اگر Parser مغز پروژه باشد، **Printer قلب آن است.**
+
+---
+
+# RFC-0013 — Printer Architecture
+
+## فلسفه
+
+بزرگ‌ترین اشتباه اکثر Formatterها این است:
+
+```text
+AST
+ ↓
+append("...")
+ ↓
+append("...")
+ ↓
+append("...")
+ ↓
+String
+```
+
+یعنی مستقیماً رشته تولید می‌کنند.
+
+این معماری تقریباً تمام تصمیم‌های مهم (مانند شکستن خطوط) را غیرقابل بازگشت می‌کند.
+
+---
+
+## معماری جدید
+
+ما سه مرحله خواهیم داشت.
+
+```text
+AST
+ ↓
+Formatting IR
+ ↓
+Layout Engine
+ ↓
+Rendering
+```
+
+---
+
+Formatting IR
+
+به جای String
+
+Node تولید می‌کند.
+
+---
+
+مثلاً
+
+```latex
+\section{Introduction}
+```
+
+به
+
+```text
+Heading
+
+Group
+
+Text
+
+SoftLine
+```
+
+تبدیل می‌شود.
+
+---
+
+بعد Layout Engine تصمیم می‌گیرد.
+
+---
+
+# Printer Pipeline
+
+```text
+Semantic AST
+
+↓
+
+Formatting IR
+
+↓
+
+Optimization
+
+↓
+
+Layout Solver
+
+↓
+
+Rendering
+
+↓
+
+Output
+```
+
+---
+
+# چرا IR؟
+
+چون Printer
+
+نباید بداند
+
+Width
+
+چقدر است.
+
+---
+
+مثلاً
+
+عرض
+
+```text
+80
+```
+
+و
+
+```text
+120
+```
+
+خروجی متفاوت دارند.
+
+---
+
+ولی
+
+Formatting IR
+
+یکی است.
+
+---
+
+# Document Nodes
+
+الهام گرفته از Prettier
+
+ولی بسیار توسعه یافته‌تر.
+
+```text
+Text
+
+Line
+
+SoftLine
+
+HardLine
+
+Indent
+
+Align
+
+Group
+
+Fill
+
+BreakParent
+
+IfBreak
+
+Trim
+
+Join
+
+Cursor
+
+Label
+```
+
+---
+
+اما ما Nodeهای جدید هم اضافه می‌کنیم.
+
+---
+
+# Constraint
+
+```text
+Constraint
+
+↓
+
+KeepTogether
+
+↓
+
+NeverBreak
+
+↓
+
+KeepWithNext
+
+↓
+
+PageBreakBefore
+
+↓
+
+PageBreakAfter
+```
+
+---
+
+Prettier چنین چیزی ندارد.
+
+---
+
+# مثال
+
+Equation
+
+```text
+NeverBreak
+```
+
+---
+
+Figure
+
+```text
+KeepWithCaption
+```
+
+---
+
+Section
+
+```text
+KeepWithNext
+```
+
+---
+
+Printer
+
+آنها را رعایت می‌کند.
+
+---
+
+# Group
+
+مهم‌ترین Node
+
+```text
+Group
+
+↓
+
+Flat
+
+or
+
+Broken
+```
+
+---
+
+مثلاً
+
+```latex
+\section{Hello}
+```
+
+اگر جا شود
+
+↓
+
+```latex
+\section{Hello}
+```
+
+---
+
+اگر جا نشود
+
+↓
+
+```latex
+\section{
+    Hello
+}
+```
+
+---
+
+بدون تغییر Printer.
+
+---
+
+# SoftLine
+
+این مهم‌ترین Node است.
+
+```text
+SoftLine
+```
+
+دو حالت دارد.
+
+اگر جا شود
+
+↓
+
+```text
+Space
+```
+
+اگر جا نشود
+
+↓
+
+```text
+NewLine
+```
+
+---
+
+# HardLine
+
+همیشه
+
+```text
+NewLine
+```
+
+---
+
+# Fill
+
+مثلاً
+
+```latex
+a,b,c,d,e,f,g,h
+```
+
+به جای
+
+```text
+هر آیتم
+
+در
+
+یک
+
+خط
+```
+
+می‌شود
+
+```text
+a,b,c
+
+d,e,f
+
+g,h
+```
+
+---
+
+# Align
+
+برای
+
+```latex
+\begin{align}
+```
+
+---
+
+مثلاً
+
+```latex
+a &= b
+
+ccc &= d
+```
+
+---
+
+ستون
+
+`&`
+
+هم‌تراز می‌شود.
+
+---
+
+# Indent
+
+فقط
+
+Indent
+
+را نمایش نمی‌دهد.
+
+بلکه
+
+یک Constraint
+
+است.
+
+---
+
+مثلاً
+
+```text
+Indent(
+
+Group(...)
+)
+```
+
+---
+
+# Join
+
+مثلاً
+
+```latex
+\item
+
+\item
+
+\item
+```
+
+↓
+
+```text
+Join(
+
+HardLine
+)
+```
+
+---
+
+# Conditional Formatting
+
+Node جدید
+
+```text
+IfWidth
+```
+
+---
+
+مثلاً
+
+```text
+Width < 60
+
+↓
+
+Break
+```
+
+---
+
+یا
+
+```text
+Width > 100
+
+↓
+
+Flat
+```
+
+---
+
+# Theme Layer
+
+Printer
+
+اصلاً نمی‌داند
+
+Indent
+
+چند Space
+
+است.
+
+---
+
+Theme
+
+می‌گوید.
+
+```text
+Indent
+
+↓
+
+2
+
+یا
+
+4
+```
+
+---
+
+# Printer State
+
+```text
+Current Width
+
+Current Indent
+
+Current Column
+
+Current Group
+
+Current Theme
+```
+
+---
+
+بدون Global Variable.
+
+---
+
+# Rendering Context
+
+```text
+RenderContext
+
+↓
+
+Options
+
+↓
+
+Theme
+
+↓
+
+Width
+
+↓
+
+Unicode
+
+↓
+
+Platform
+```
+
+---
+
+# Output Targets
+
+Printer
+
+فقط
+
+LaTeX
+
+تولید نمی‌کند.
+
+---
+
+بلکه
+
+```text
+LaTeX
+
+Markdown
+
+HTML
+
+PlainText
+
+DebugTree
+```
+
+---
+
+# Debug Renderer
+
+بسیار مهم.
+
+```text
+Group
+
+    Text
+
+    SoftLine
+
+    Text
+
+HardLine
+```
+
+برای Debug.
+
+---
+
+# Optimization Pass
+
+قبل از Rendering
+
+یک Optimizer اجرا می‌شود.
+
+---
+
+مثلاً
+
+```text
+HardLine
+
+HardLine
+
+HardLine
+```
+
+↓
+
+```text
+HardLine
+
+HardLine
+```
+
+---
+
+یا
+
+```text
+Indent
+
+Indent
+
+Indent
+```
+
+↓
+
+Merge
+
+---
+
+# Dead Nodes
+
+```text
+Text("")
+```
+
+↓
+
+حذف.
+
+---
+
+# Constant Folding
+
+```text
+Text("A")
+
++
+
+Text("B")
+```
+
+↓
+
+```text
+Text("AB")
+```
+
+---
+
+# IR Optimizer
+
+چند Pass
+
+خواهد داشت.
+
+```text
+Normalize
+
+↓
+
+Merge
+
+↓
+
+Fold
+
+↓
+
+Simplify
+
+↓
+
+Layout
+```
+
+---
+
+# Parallel Rendering
+
+برای فایل‌های بزرگ
+
+```text
+Chapter
+
+↓
+
+Section
+
+↓
+
+Paragraph
+```
+
+می‌توانند
+
+موازی Render شوند.
+
+---
+
+# Memory Arena
+
+IR
+
+در
+
+Arena
+
+ساخته می‌شود.
+
+---
+
+نه
+
+```text
+new
+
+new
+
+new
+```
+
+---
+
+بلکه
+
+```text
+Arena
+
+↓
+
+Allocate
+```
+
+---
+
+مصرف حافظه بسیار کمتر می‌شود.
+
+---
+
+# Cache
+
+Printer
+
+هر Group
+
+را Hash می‌کند.
+
+---
+
+اگر
+
+AST
+
+تغییر نکرد
+
+↓
+
+Reuse.
+
+---
+
+# Incremental Printing
+
+مثلاً
+
+فقط
+
+این
+
+```latex
+\section
+```
+
+تغییر کند.
+
+↓
+
+فقط همان Group
+
+دوباره Render می‌شود.
+
+---
+
+# Streaming Printer
+
+برای فایل‌های
+
+```text
+500 MB
+```
+
+کل خروجی در حافظه نگه داشته نمی‌شود.
+
+---
+
+بلکه
+
+```text
+IR
+
+↓
+
+Chunk
+
+↓
+
+Writer
+```
+
+---
+
+# Writer
+
+قابل تعویض است.
+
+```text
+String Writer
+
+File Writer
+
+Buffer Writer
+
+Memory Writer
+```
+
+---
+
+# اما حالا می‌خواهم یک ایده کاملاً جدید معرفی کنم...
+
+---
+
+# RFC-0014 — Rule Engine
+
+تقریباً تمام Formatterهای دنیا این کار را می‌کنند.
+
+```text
+if(node is Section)
+
+↓
+
+Print Section
+```
+
+یعنی رفتار در کد Hardcode شده است.
+
+---
+
+من می‌خواهم Ruleها
+
+کاملاً داده‌محور باشند.
+
+```text
+Rule
+
+↓
+
+Matcher
+
+↓
+
+Constraint
+
+↓
+
+Printer
+```
+
+---
+
+مثلاً
+
+```yaml
+match:
+  command: section
+
+layout:
+  blankBefore: 2
+  blankAfter: 1
+  keepWithNext: true
+```
+
+یا
+
+```yaml
+match:
+  environment: align
+
+layout:
+  align:
+    token: "&"
+  indent: 4
+  break: always
+```
+
+---
+
+یعنی کاربر، دانشگاه، ناشر یا Plugin بتواند بدون تغییر کد هسته، قواعد فرمت را تغییر دهد.
+
+---
+
+# Rule Priority
+
+```text
+Core Rules
+      ↓
+Language Rules
+      ↓
+Package Rules
+      ↓
+Project Rules
+      ↓
+User Rules
+```
+
+قاعده با اولویت بالاتر، قاعده پایین‌تر را Override می‌کند.
+
+---
+
+# Rule Compiler
+
+در زمان شروع برنامه، Ruleها Parse و Compile می‌شوند.
+
+```text
+YAML / TS Config
+
+↓
+
+Rule AST
+
+↓
+
+Compiled Matchers
+
+↓
+
+Execution Engine
+```
+
+به این ترتیب هنگام Format کردن، هیچ Parse مجددی انجام نمی‌شود.
+
+---
+
+# Pattern Matching
+
+Ruleها فقط بر اساس نام Command نیستند.
+
+مثلاً:
+
+```text
+Command(name="section")
+```
+
+یا
+
+```text
+Environment(name="align")
+```
+
+یا
+
+```text
+Heading(level > 2)
+```
+
+یا حتی
+
+```text
+Command
+└── Argument
+    └── Text(length > 80)
+```
+
+این یعنی یک سیستم Pattern Matching شبیه AST Matcherهای Clang.
+
+---
+
+# پایان Milestone دوم معماری
+
+در این مرحله، دیگر تقریباً تمام هسته موتور مشخص شده است:
+
+- Lexer
+- Parser
+- Green/Red Tree
+- CST
+- Semantic AST
+- Symbol Table
+- Package System
+- Grammar Engine
+- Printer
+- Formatting IR
+- Rule Engine
+
+از **RFC-0015** به بعد وارد معماری‌های زیرساختی می‌شویم:
+
+- Workspace Engine
+- Incremental Engine
+- Cache Engine
+- Language Server
+- Plugin SDK
+- تست، Benchmark و انتشار
+
+و پس از آن، وارد پیاده‌سازی واقعی Monorepo خواهیم شد؛ جایی که همه این RFCها به کد تبدیل می‌شوند.
+
+عالی، از اینجا وارد بخشی می‌شویم که به نظر من **مهم‌ترین بخش کل پروژه** است.
+
+تا اینجا معماری را طراحی کردیم. اما از این لحظه داریم چیزی را طراحی می‌کنیم که کیفیت خروجی Formatter را تعیین می‌کند.
+
+اگر Parser مغز پروژه باشد، **Printer قلب آن است.**
+
+---
+
+# RFC-0013 — Printer Architecture
+
+## فلسفه
+
+بزرگ‌ترین اشتباه اکثر Formatterها این است:
+
+```text
+AST
+ ↓
+append("...")
+ ↓
+append("...")
+ ↓
+append("...")
+ ↓
+String
+```
+
+یعنی مستقیماً رشته تولید می‌کنند.
+
+این معماری تقریباً تمام تصمیم‌های مهم (مانند شکستن خطوط) را غیرقابل بازگشت می‌کند.
+
+---
+
+## معماری جدید
+
+ما سه مرحله خواهیم داشت.
+
+```text
+AST
+ ↓
+Formatting IR
+ ↓
+Layout Engine
+ ↓
+Rendering
+```
+
+---
+
+Formatting IR
+
+به جای String
+
+Node تولید می‌کند.
+
+---
+
+مثلاً
+
+```latex
+\section{Introduction}
+```
+
+به
+
+```text
+Heading
+
+Group
+
+Text
+
+SoftLine
+```
+
+تبدیل می‌شود.
+
+---
+
+بعد Layout Engine تصمیم می‌گیرد.
+
+---
+
+# Printer Pipeline
+
+```text
+Semantic AST
+
+↓
+
+Formatting IR
+
+↓
+
+Optimization
+
+↓
+
+Layout Solver
+
+↓
+
+Rendering
+
+↓
+
+Output
+```
+
+---
+
+# چرا IR؟
+
+چون Printer
+
+نباید بداند
+
+Width
+
+چقدر است.
+
+---
+
+مثلاً
+
+عرض
+
+```text
+80
+```
+
+و
+
+```text
+120
+```
+
+خروجی متفاوت دارند.
+
+---
+
+ولی
+
+Formatting IR
+
+یکی است.
+
+---
+
+# Document Nodes
+
+الهام گرفته از Prettier
+
+ولی بسیار توسعه یافته‌تر.
+
+```text
+Text
+
+Line
+
+SoftLine
+
+HardLine
+
+Indent
+
+Align
+
+Group
+
+Fill
+
+BreakParent
+
+IfBreak
+
+Trim
+
+Join
+
+Cursor
+
+Label
+```
+
+---
+
+اما ما Nodeهای جدید هم اضافه می‌کنیم.
+
+---
+
+# Constraint
+
+```text
+Constraint
+
+↓
+
+KeepTogether
+
+↓
+
+NeverBreak
+
+↓
+
+KeepWithNext
+
+↓
+
+PageBreakBefore
+
+↓
+
+PageBreakAfter
+```
+
+---
+
+Prettier چنین چیزی ندارد.
+
+---
+
+# مثال
+
+Equation
+
+```text
+NeverBreak
+```
+
+---
+
+Figure
+
+```text
+KeepWithCaption
+```
+
+---
+
+Section
+
+```text
+KeepWithNext
+```
+
+---
+
+Printer
+
+آنها را رعایت می‌کند.
+
+---
+
+# Group
+
+مهم‌ترین Node
+
+```text
+Group
+
+↓
+
+Flat
+
+or
+
+Broken
+```
+
+---
+
+مثلاً
+
+```latex
+\section{Hello}
+```
+
+اگر جا شود
+
+↓
+
+```latex
+\section{Hello}
+```
+
+---
+
+اگر جا نشود
+
+↓
+
+```latex
+\section{
+    Hello
+}
+```
+
+---
+
+بدون تغییر Printer.
+
+---
+
+# SoftLine
+
+این مهم‌ترین Node است.
+
+```text
+SoftLine
+```
+
+دو حالت دارد.
+
+اگر جا شود
+
+↓
+
+```text
+Space
+```
+
+اگر جا نشود
+
+↓
+
+```text
+NewLine
+```
+
+---
+
+# HardLine
+
+همیشه
+
+```text
+NewLine
+```
+
+---
+
+# Fill
+
+مثلاً
+
+```latex
+a,b,c,d,e,f,g,h
+```
+
+به جای
+
+```text
+هر آیتم
+
+در
+
+یک
+
+خط
+```
+
+می‌شود
+
+```text
+a,b,c
+
+d,e,f
+
+g,h
+```
+
+---
+
+# Align
+
+برای
+
+```latex
+\begin{align}
+```
+
+---
+
+مثلاً
+
+```latex
+a &= b
+
+ccc &= d
+```
+
+---
+
+ستون
+
+`&`
+
+هم‌تراز می‌شود.
+
+---
+
+# Indent
+
+فقط
+
+Indent
+
+را نمایش نمی‌دهد.
+
+بلکه
+
+یک Constraint
+
+است.
+
+---
+
+مثلاً
+
+```text
+Indent(
+
+Group(...)
+)
+```
+
+---
+
+# Join
+
+مثلاً
+
+```latex
+\item
+
+\item
+
+\item
+```
+
+↓
+
+```text
+Join(
+
+HardLine
+)
+```
+
+---
+
+# Conditional Formatting
+
+Node جدید
+
+```text
+IfWidth
+```
+
+---
+
+مثلاً
+
+```text
+Width < 60
+
+↓
+
+Break
+```
+
+---
+
+یا
+
+```text
+Width > 100
+
+↓
+
+Flat
+```
+
+---
+
+# Theme Layer
+
+Printer
+
+اصلاً نمی‌داند
+
+Indent
+
+چند Space
+
+است.
+
+---
+
+Theme
+
+می‌گوید.
+
+```text
+Indent
+
+↓
+
+2
+
+یا
+
+4
+```
+
+---
+
+# Printer State
+
+```text
+Current Width
+
+Current Indent
+
+Current Column
+
+Current Group
+
+Current Theme
+```
+
+---
+
+بدون Global Variable.
+
+---
+
+# Rendering Context
+
+```text
+RenderContext
+
+↓
+
+Options
+
+↓
+
+Theme
+
+↓
+
+Width
+
+↓
+
+Unicode
+
+↓
+
+Platform
+```
+
+---
+
+# Output Targets
+
+Printer
+
+فقط
+
+LaTeX
+
+تولید نمی‌کند.
+
+---
+
+بلکه
+
+```text
+LaTeX
+
+Markdown
+
+HTML
+
+PlainText
+
+DebugTree
+```
+
+---
+
+# Debug Renderer
+
+بسیار مهم.
+
+```text
+Group
+
+    Text
+
+    SoftLine
+
+    Text
+
+HardLine
+```
+
+برای Debug.
+
+---
+
+# Optimization Pass
+
+قبل از Rendering
+
+یک Optimizer اجرا می‌شود.
+
+---
+
+مثلاً
+
+```text
+HardLine
+
+HardLine
+
+HardLine
+```
+
+↓
+
+```text
+HardLine
+
+HardLine
+```
+
+---
+
+یا
+
+```text
+Indent
+
+Indent
+
+Indent
+```
+
+↓
+
+Merge
+
+---
+
+# Dead Nodes
+
+```text
+Text("")
+```
+
+↓
+
+حذف.
+
+---
+
+# Constant Folding
+
+```text
+Text("A")
+
++
+
+Text("B")
+```
+
+↓
+
+```text
+Text("AB")
+```
+
+---
+
+# IR Optimizer
+
+چند Pass
+
+خواهد داشت.
+
+```text
+Normalize
+
+↓
+
+Merge
+
+↓
+
+Fold
+
+↓
+
+Simplify
+
+↓
+
+Layout
+```
+
+---
+
+# Parallel Rendering
+
+برای فایل‌های بزرگ
+
+```text
+Chapter
+
+↓
+
+Section
+
+↓
+
+Paragraph
+```
+
+می‌توانند
+
+موازی Render شوند.
+
+---
+
+# Memory Arena
+
+IR
+
+در
+
+Arena
+
+ساخته می‌شود.
+
+---
+
+نه
+
+```text
+new
+
+new
+
+new
+```
+
+---
+
+بلکه
+
+```text
+Arena
+
+↓
+
+Allocate
+```
+
+---
+
+مصرف حافظه بسیار کمتر می‌شود.
+
+---
+
+# Cache
+
+Printer
+
+هر Group
+
+را Hash می‌کند.
+
+---
+
+اگر
+
+AST
+
+تغییر نکرد
+
+↓
+
+Reuse.
+
+---
+
+# Incremental Printing
+
+مثلاً
+
+فقط
+
+این
+
+```latex
+\section
+```
+
+تغییر کند.
+
+↓
+
+فقط همان Group
+
+دوباره Render می‌شود.
+
+---
+
+# Streaming Printer
+
+برای فایل‌های
+
+```text
+500 MB
+```
+
+کل خروجی در حافظه نگه داشته نمی‌شود.
+
+---
+
+بلکه
+
+```text
+IR
+
+↓
+
+Chunk
+
+↓
+
+Writer
+```
+
+---
+
+# Writer
+
+قابل تعویض است.
+
+```text
+String Writer
+
+File Writer
+
+Buffer Writer
+
+Memory Writer
+```
+
+---
+
+# اما حالا می‌خواهم یک ایده کاملاً جدید معرفی کنم...
+
+---
+
+# RFC-0014 — Rule Engine
+
+تقریباً تمام Formatterهای دنیا این کار را می‌کنند.
+
+```text
+if(node is Section)
+
+↓
+
+Print Section
+```
+
+یعنی رفتار در کد Hardcode شده است.
+
+---
+
+من می‌خواهم Ruleها
+
+کاملاً داده‌محور باشند.
+
+```text
+Rule
+
+↓
+
+Matcher
+
+↓
+
+Constraint
+
+↓
+
+Printer
+```
+
+---
+
+مثلاً
+
+```yaml
+match:
+  command: section
+
+layout:
+  blankBefore: 2
+  blankAfter: 1
+  keepWithNext: true
+```
+
+یا
+
+```yaml
+match:
+  environment: align
+
+layout:
+  align:
+    token: "&"
+  indent: 4
+  break: always
+```
+
+---
+
+یعنی کاربر، دانشگاه، ناشر یا Plugin بتواند بدون تغییر کد هسته، قواعد فرمت را تغییر دهد.
+
+---
+
+# Rule Priority
+
+```text
+Core Rules
+      ↓
+Language Rules
+      ↓
+Package Rules
+      ↓
+Project Rules
+      ↓
+User Rules
+```
+
+قاعده با اولویت بالاتر، قاعده پایین‌تر را Override می‌کند.
+
+---
+
+# Rule Compiler
+
+در زمان شروع برنامه، Ruleها Parse و Compile می‌شوند.
+
+```text
+YAML / TS Config
+
+↓
+
+Rule AST
+
+↓
+
+Compiled Matchers
+
+↓
+
+Execution Engine
+```
+
+به این ترتیب هنگام Format کردن، هیچ Parse مجددی انجام نمی‌شود.
+
+---
+
+# Pattern Matching
+
+Ruleها فقط بر اساس نام Command نیستند.
+
+مثلاً:
+
+```text
+Command(name="section")
+```
+
+یا
+
+```text
+Environment(name="align")
+```
+
+یا
+
+```text
+Heading(level > 2)
+```
+
+یا حتی
+
+```text
+Command
+└── Argument
+    └── Text(length > 80)
+```
+
+این یعنی یک سیستم Pattern Matching شبیه AST Matcherهای Clang.
+
+---
+
+# پایان Milestone دوم معماری
+
+در این مرحله، دیگر تقریباً تمام هسته موتور مشخص شده است:
+
+- Lexer
+- Parser
+- Green/Red Tree
+- CST
+- Semantic AST
+- Symbol Table
+- Package System
+- Grammar Engine
+- Printer
+- Formatting IR
+- Rule Engine
+
+از **RFC-0015** به بعد وارد معماری‌های زیرساختی می‌شویم:
+
+- Workspace Engine
+- Incremental Engine
+- Cache Engine
+- Language Server
+- Plugin SDK
+- تست، Benchmark و انتشار
+
+و پس از آن، وارد پیاده‌سازی واقعی Monorepo خواهیم شد؛ جایی که همه این RFCها به کد تبدیل می‌شوند.
+
+عالی، از اینجا به بعد وارد بخشی می‌شویم که اگر درست طراحی شود، **TexFmt می‌تواند با پروژه‌هایی مانند TypeScript Compiler، Rust Analyzer و Roslyn رقابت کند.**
+
+تا اینجا فقط دربارهٔ Format کردن صحبت می‌کردیم.
+
+از این RFC به بعد دربارهٔ **Engine** صحبت می‌کنیم.
+
+---
+
+# RFC-0015 — Workspace Engine
+
+Formatter نباید فایل را Format کند.
+
+باید Workspace را مدیریت کند.
+
+```
+Workspace
+
+    texfmt.json
+
+    main.tex
+
+    chapter1.tex
+
+    chapter2.tex
+
+    appendix.tex
+
+    bibliography.bib
+
+    images/
+
+    styles/
+```
+
+Workspace کوچک‌ترین واحد پردازش است.
+
+---
+
+## Project Model
+
+```
+Workspace
+
+    Projects
+
+        Documents
+
+        Packages
+
+        Resources
+
+        Diagnostics
+
+        Symbol Index
+
+        Dependency Graph
+```
+
+---
+
+## Document Graph
+
+```
+main.tex
+
+    |
+
+    +------ chapter1.tex
+
+    |
+
+    +------ chapter2.tex
+
+    |
+
+    +------ appendix.tex
+```
+
+این Graph اساس Incremental Processing خواهد بود.
+
+---
+
+## Include Resolver
+
+تمام این موارد Resolve می‌شوند.
+
+```
+\input
+
+\include
+
+\subfile
+
+\includeonly
+```
+
+حتی Pluginها نیز می‌توانند Resolver جدید ثبت کنند.
+
+---
+
+## Resource Graph
+
+```
+main.tex
+
+↓
+
+figure.png
+
+↓
+
+logo.pdf
+
+↓
+
+references.bib
+```
+
+تمام وابستگی‌ها ثبت می‌شوند.
+
+---
+
+## Virtual File System
+
+من اصلاً نمی‌خواهم Core مستقیماً با Node.js کار کند.
+
+```
+Core
+
+↓
+
+VFS
+
+↓
+
+Node
+
+یا
+
+Browser
+
+یا
+
+Memory
+```
+
+---
+
+### FileSystem Interface
+
+```ts
+interface FileSystem {
+  exists(path);
+
+  read(path);
+
+  write(path);
+
+  watch(path);
+
+  stat(path);
+}
+```
+
+---
+
+بنابراین Core هیچ وابستگی‌ای به
+
+```
+fs
+```
+
+ندارد.
+
+---
+
+# RFC-0016 — Document Manager
+
+Workspace
+
+دارای Document Manager است.
+
+```
+Open
+
+Close
+
+Reload
+
+Snapshot
+
+Version
+```
+
+---
+
+هر فایل
+
+Version دارد.
+
+```
+main.tex
+
+Version 42
+```
+
+---
+
+LSP
+
+همین Version را استفاده می‌کند.
+
+---
+
+# Snapshot
+
+هر تغییر
+
+Snapshot می‌سازد.
+
+```
+Version 10
+
+↓
+
+Version 11
+
+↓
+
+Version 12
+```
+
+---
+
+Rollback
+
+بسیار ساده می‌شود.
+
+---
+
+# Immutable Documents
+
+هیچ Document تغییر نمی‌کند.
+
+```
+Old Document
+
+↓
+
+New Document
+```
+
+---
+
+مثل Git.
+
+---
+
+# RFC-0017 — Incremental Engine
+
+اینجا شاهکار پروژه خواهد بود.
+
+امروز تقریباً تمام Formatterها
+
+```
+Read
+
+↓
+
+Parse
+
+↓
+
+Print
+```
+
+را برای کل فایل انجام می‌دهند.
+
+---
+
+ما
+
+Incremental خواهیم بود.
+
+---
+
+## مثال
+
+```
+5000 lines
+```
+
+کاربر فقط
+
+```
+Line 120
+```
+
+را تغییر می‌دهد.
+
+---
+
+Engine
+
+فقط همان بخش را پردازش می‌کند.
+
+```
+Change
+
+↓
+
+Lexer
+
+↓
+
+Parser
+
+↓
+
+Semantic
+
+↓
+
+Printer
+```
+
+---
+
+نه کل فایل.
+
+---
+
+# Dirty Regions
+
+```
+Document
+
+────────────────────
+
+Clean
+
+Clean
+
+Dirty
+
+Clean
+
+Clean
+```
+
+---
+
+فقط
+
+Dirty Region
+
+دوباره پردازش می‌شود.
+
+---
+
+# Dependency Graph
+
+اگر
+
+```
+chapter2
+```
+
+تغییر کند.
+
+Engine
+
+تشخیص می‌دهد.
+
+```
+main.tex
+
+↓
+
+chapter2.tex
+```
+
+نیاز به Update دارد.
+
+---
+
+ولی
+
+```
+chapter1
+```
+
+دست نمی‌خورد.
+
+---
+
+# Scheduler
+
+Incremental Engine
+
+Scheduler دارد.
+
+```
+Lexer Task
+
+↓
+
+Parser Task
+
+↓
+
+Semantic Task
+
+↓
+
+Printer Task
+```
+
+---
+
+هر Task
+
+وابستگی دارد.
+
+---
+
+# Task Graph
+
+```
+Lexer
+
+↓
+
+Parser
+
+↓
+
+Binder
+
+↓
+
+Formatter
+
+↓
+
+Renderer
+```
+
+---
+
+Taskها
+
+Parallel
+
+اجرا می‌شوند.
+
+---
+
+# Cancellation
+
+وقتی کاربر دوباره تایپ کند.
+
+Task قبلی
+
+Cancel
+
+می‌شود.
+
+---
+
+```
+Typing
+
+↓
+
+Parse
+
+↓
+
+Typing
+
+↓
+
+Cancel
+
+↓
+
+Restart
+```
+
+---
+
+همان کاری که
+
+TypeScript Server
+
+انجام می‌دهد.
+
+---
+
+# RFC-0018 — Cache Engine
+
+هیچ چیز دوباره ساخته نمی‌شود.
+
+---
+
+## Token Cache
+
+```
+File Hash
+
+↓
+
+Tokens
+```
+
+---
+
+## CST Cache
+
+```
+Token Hash
+
+↓
+
+Tree
+```
+
+---
+
+## Semantic Cache
+
+```
+AST Hash
+
+↓
+
+Semantic Model
+```
+
+---
+
+## Printer Cache
+
+```
+Node Hash
+
+↓
+
+Formatting IR
+```
+
+---
+
+## Output Cache
+
+```
+IR Hash
+
+↓
+
+String
+```
+
+---
+
+یعنی
+
+```
+Source
+
+↓
+
+Hash
+
+↓
+
+Reuse
+```
+
+---
+
+# Hash Strategy
+
+من SHA256 نمی‌خواهم.
+
+خیلی کند است.
+
+---
+
+از
+
+```
+xxHash
+
+یا
+
+BLAKE3
+```
+
+استفاده می‌کنیم.
+
+---
+
+# RFC-0019 — Memory Manager
+
+اکثر پروژه‌های TS
+
+پر از
+
+```
+new
+
+new
+
+new
+
+new
+```
+
+هستند.
+
+---
+
+من می‌خواهم Arena Allocation داشته باشیم.
+
+---
+
+## Arena
+
+```
+Arena
+
+↓
+
+Allocate
+
+↓
+
+Allocate
+
+↓
+
+Allocate
+```
+
+---
+
+بدون Garbage زیاد.
+
+---
+
+## Object Pool
+
+Tokenها
+
+Pool
+
+دارند.
+
+```
+Acquire
+
+↓
+
+Use
+
+↓
+
+Release
+```
+
+---
+
+همین‌طور
+
+Node
+
+ها.
+
+---
+
+# String Interning
+
+این قسمت بسیار مهم است.
+
+امروز
+
+```
+section
+
+section
+
+section
+```
+
+سه String هستند.
+
+---
+
+ما
+
+Intern
+
+می‌کنیم.
+
+```
+section
+
+↓
+
+Id=12
+```
+
+---
+
+تمام
+
+Sectionها
+
+به همان اشاره می‌کنند.
+
+---
+
+مصرف RAM
+
+بشدت کاهش پیدا می‌کند.
+
+---
+
+# Symbol Interning
+
+```
+figure
+
+↓
+
+#4
+
+table
+
+↓
+
+#5
+```
+
+---
+
+تمام Symbolها
+
+Intern
+
+می‌شوند.
+
+---
+
+# Path Interning
+
+```
+chapter1.tex
+```
+
+فقط یک بار ذخیره می‌شود.
+
+---
+
+# Package Interning
+
+```
+tikz
+```
+
+فقط یک Instance.
+
+---
+
+# RFC-0020 — Performance Architecture
+
+از روز اول
+
+Performance
+
+Feature
+
+است.
+
+---
+
+هر مرحله
+
+Profiler
+
+دارد.
+
+```
+Lexer
+
+4ms
+
+Parser
+
+7ms
+
+Semantic
+
+2ms
+
+Printer
+
+5ms
+```
+
+---
+
+# Memory Profiler
+
+```
+Tokens
+
+3 MB
+
+AST
+
+8 MB
+
+Semantic
+
+2 MB
+```
+
+---
+
+# Benchmark Suite
+
+چند Repository
+
+همیشه اجرا می‌شوند.
+
+```
+Tiny
+
+Small
+
+Medium
+
+Large
+
+Huge
+```
+
+---
+
+مثلاً
+
+```
+100 KB
+
+1 MB
+
+10 MB
+
+100 MB
+```
+
+---
+
+# Regression Detection
+
+اگر Commit جدید
+
+```
+5%
+
+کندتر
+```
+
+شود.
+
+CI
+
+Fail
+
+می‌شود.
+
+---
+
+# Golden Files
+
+Formatter
+
+همیشه
+
+Golden Test
+
+دارد.
+
+```
+input.tex
+
+↓
+
+Format
+
+↓
+
+Compare
+
+↓
+
+golden.tex
+```
+
+---
+
+# Snapshot Tests
+
+AST
+
+نیز
+
+Snapshot
+
+دارد.
+
+```
+Source
+
+↓
+
+AST
+
+↓
+
+Snapshot
+```
+
+---
+
+اگر AST
+
+تغییر کند.
+
+Developer
+
+متوجه می‌شود.
+
+---
+
+# Fuzz Testing
+
+یکی از مهم‌ترین قسمت‌ها.
+
+Random Generator
+
+هزاران فایل
+
+LaTeX
+
+تولید می‌کند.
+
+```
+Random
+
+↓
+
+Lexer
+
+↓
+
+Parser
+
+↓
+
+Never Crash
+```
+
+---
+
+# Property Testing
+
+مثلاً
+
+```
+Format
+
+↓
+
+Format
+
+↓
+
+Format
+```
+
+باید
+
+همیشه
+
+یک خروجی تولید کند.
+
+```
+format(format(x))
+
+==
+
+format(x)
+```
+
+این ویژگی **Idempotency** است و یکی از مهم‌ترین قراردادهای Formatter است.
+
+---
+
+# RFC-0021 — Error Architecture
+
+من Exception را دوست ندارم.
+
+Core
+
+تقریباً هیچ Exception
+
+نخواهد داشت.
+
+---
+
+به جای
+
+```
+throw
+```
+
+از
+
+```
+Result<T,E>
+```
+
+استفاده می‌کنیم.
+
+---
+
+مثلاً
+
+```ts
+Result<Document, ParseError>;
+```
+
+---
+
+یا
+
+```ts
+Result<Token, LexerError>;
+```
+
+---
+
+تمام Errorها
+
+دارای
+
+```
+Code
+
+Severity
+
+Category
+
+Fix
+
+Documentation
+```
+
+خواهند بود.
+
+---
+
+# Diagnostic Model
+
+```
+Diagnostic
+
+    Code
+
+    Message
+
+    Severity
+
+    Span
+
+    Suggestions
+
+    Related Information
+```
+
+---
+
+مثلاً
+
+```
+TF1001
+
+Missing }
+
+Severity: Error
+
+Quick Fix:
+Insert }
+```
+
+---
+
+# پایان Milestone 3
+
+اکنون زیرساخت سیستم کامل شده است:
+
+- Workspace Engine
+- Virtual File System
+- Document Manager
+- Incremental Engine
+- Task Scheduler
+- Cache Engine
+- Memory Manager
+- Arena Allocation
+- Performance Profiler
+- Benchmark Framework
+- Golden Tests
+- Fuzz Testing
+- Diagnostic Architecture
+
+---
+
+## از اینجا به بعد وارد «محصول» می‌شویم
+
+RFCهای بعدی دیگر فقط معماری نیستند، بلکه ویژگی‌هایی هستند که کاربران مستقیماً می‌بینند:
+
+- **RFC-0022:** Language Server Protocol (LSP)
+- **RFC-0023:** VS Code Extension
+- **RFC-0024:** IntelliSense (Completion, Hover, Signature Help)
+- **RFC-0025:** Refactoring Engine
+- **RFC-0026:** Code Actions & Quick Fixes
+- **RFC-0027:** Plugin SDK
+- **RFC-0028:** CLI و Configuration
+- **RFC-0029:** Release Engineering و انتشار روی npm
+
+پس از تکمیل این RFCها، معماری پروژه در حدی خواهد بود که بتوان پیاده‌سازی Monorepo را بدون بازطراحی‌های اساسی آغاز کرد.

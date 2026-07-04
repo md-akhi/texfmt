@@ -1,0 +1,25 @@
+{
+  "name": "texfmt",
+  "version": "1.0.0",
+  "description": "LaTeX Toolkit",
+  "homepage": "https://github.com/md-akhi/texfmt#readme",
+  "bugs": {
+    "url": "https://github.com/md-akhi/texfmt/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/md-akhi/texfmt.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
