@@ -9413,3 +9413,1993 @@ RFCهای بعدی دیگر فقط معماری نیستند، بلکه ویژگ
 - **RFC-0029:** Release Engineering و انتشار روی npm
 
 پس از تکمیل این RFCها، معماری پروژه در حدی خواهد بود که بتوان پیاده‌سازی Monorepo را بدون بازطراحی‌های اساسی آغاز کرد.
+
+عالی، از اینجا به بعد وارد بخشی می‌شویم که به نظر من **TexFmt را از یک کتابخانه به یک Platform کامل تبدیل می‌کند.**
+
+تا اینجا هسته (Core) را طراحی کرده‌ایم. اکنون نوبت API عمومی و تجربه توسعه‌دهندگان (Developer Experience) است.
+
+---
+
+# RFC-0022 — Public API Design
+
+یکی از اشتباهات رایج پروژه‌ها این است که ابتدا پیاده‌سازی می‌شوند و بعد API روی آن‌ها سوار می‌شود.
+
+ما برعکس عمل می‌کنیم.
+
+ابتدا API طراحی می‌شود.
+
+سپس پیاده‌سازی.
+
+---
+
+## اصل اول
+
+Core نباید Export شود.
+
+کاربر فقط Facade را می‌بیند.
+
+```text
+Application
+
+↓
+
+Public API
+
+↓
+
+Core
+
+↓
+
+Internal Components
+```
+
+---
+
+## API سطح بالا
+
+```ts
+import { format } from "@texfmt/core";
+
+const result = await format(source);
+```
+
+تمام.
+
+---
+
+اما API حرفه‌ای نیز وجود دارد.
+
+```ts
+import { Parser } from "@texfmt/parser";
+
+const parser = new Parser();
+
+const tree = parser.parse(source);
+```
+
+---
+
+## API لایه‌ای
+
+```text
+Level 1
+
+format()
+
+────────────────
+
+Level 2
+
+Parser
+
+Printer
+
+Lexer
+
+────────────────
+
+Level 3
+
+Green Tree
+
+Red Tree
+
+Registry
+
+Scheduler
+
+────────────────
+
+Level 4
+
+Internal
+```
+
+---
+
+# RFC-0023 — Plugin SDK
+
+Plugin فقط نباید Command اضافه کند.
+
+باید بتواند تمام Pipeline را توسعه دهد.
+
+---
+
+## Plugin Lifecycle
+
+```text
+Load
+
+↓
+
+Initialize
+
+↓
+
+Register
+
+↓
+
+Execute
+
+↓
+
+Dispose
+```
+
+---
+
+## Plugin Interface
+
+```ts
+interface Plugin {
+  metadata;
+
+  activate(context);
+
+  deactivate();
+}
+```
+
+---
+
+## Plugin Context
+
+```ts
+context.registry;
+
+context.workspace;
+
+context.logger;
+
+context.configuration;
+
+context.diagnostics;
+
+context.commands;
+```
+
+---
+
+Plugin هیچ Global Variable ندارد.
+
+---
+
+# Extension Points
+
+Plugin می‌تواند
+
+```text
+Lexer
+
+Parser
+
+Semantic
+
+Formatter
+
+Printer
+
+Diagnostics
+
+Code Actions
+
+Hover
+
+Completion
+
+Rename
+```
+
+را توسعه دهد.
+
+---
+
+## مثال
+
+TikZ
+
+```text
+Lexer
+
+↓
+
+No Change
+
+Parser
+
+↓
+
+New Grammar
+
+Semantic
+
+↓
+
+New Symbols
+
+Printer
+
+↓
+
+New Rules
+```
+
+---
+
+# RFC-0024 — Language Server
+
+این بخش تقریباً یک محصول مستقل است.
+
+---
+
+## Architecture
+
+```text
+VSCode
+
+↓
+
+LSP
+
+↓
+
+Workspace
+
+↓
+
+Compiler
+
+↓
+
+Semantic Model
+```
+
+---
+
+LSP
+
+هرگز Parser مستقل ندارد.
+
+---
+
+تمام اطلاعات از Core می‌آید.
+
+---
+
+## Request Flow
+
+```text
+Hover
+
+↓
+
+Workspace
+
+↓
+
+Semantic Model
+
+↓
+
+Response
+```
+
+---
+
+نه
+
+```text
+Hover
+
+↓
+
+Parse Again
+```
+
+---
+
+# Completion
+
+Completion
+
+از Symbol Table
+
+تغذیه می‌شود.
+
+---
+
+مثلاً
+
+```latex
+\ref{
+```
+
+↓
+
+```text
+fig:main
+
+tbl:data
+
+eq:wave
+```
+
+---
+
+## Hover
+
+```latex
+\cite{knuth84}
+```
+
+↓
+
+```text
+Donald Knuth
+
+1984
+
+The TeXbook
+```
+
+---
+
+## Signature Help
+
+```latex
+\includegraphics[
+```
+
+↓
+
+```text
+width
+
+height
+
+scale
+
+angle
+```
+
+---
+
+همه توسط Plugin.
+
+---
+
+# RFC-0025 — Refactoring Engine
+
+این قسمت چیزی است که تقریباً هیچ ابزار LaTeX ندارد.
+
+---
+
+## Rename
+
+```latex
+\label{fig:test}
+```
+
+↓
+
+Rename
+
+↓
+
+```latex
+\label{fig:overview}
+```
+
+تمام
+
+```latex
+\ref
+```
+
+ها نیز تغییر می‌کنند.
+
+---
+
+## Extract Environment
+
+```latex
+A
+
+B
+
+C
+```
+
+↓
+
+```latex
+\begin{myenv}
+
+A
+
+B
+
+C
+
+\end{myenv}
+```
+
+---
+
+## Inline Command
+
+```latex
+\newcommand{\foo}{Hello}
+```
+
+↓
+
+```latex
+Hello
+```
+
+---
+
+## Organize Preamble
+
+```latex
+\usepackage
+
+\newcommand
+
+\RequirePackage
+```
+
+↓
+
+مرتب‌سازی.
+
+---
+
+# RFC-0026 — Code Actions
+
+Diagnostics
+
+فقط پیام نمی‌دهند.
+
+Fix هم دارند.
+
+---
+
+مثلاً
+
+```text
+Missing }
+```
+
+↓
+
+Quick Fix
+
+↓
+
+```text
+Insert }
+```
+
+---
+
+یا
+
+```text
+Unused Package
+```
+
+↓
+
+Quick Fix
+
+↓
+
+Remove Package
+
+````
+
+---
+
+# Fix Provider
+
+هر Plugin
+
+Fix Provider
+
+ثبت می‌کند.
+
+```ts
+interface CodeFix {
+
+    canFix()
+
+    apply()
+
+}
+````
+
+---
+
+# RFC-0027 — Configuration System
+
+من نمی‌خواهم فقط
+
+```json
+{}
+```
+
+داشته باشیم.
+
+---
+
+بلکه
+
+```ts
+export default defineConfig({
+
+    printWidth:100,
+
+    plugins:[...]
+
+})
+```
+
+---
+
+چون
+
+TypeScript
+
+قدرت بسیار بیشتری دارد.
+
+---
+
+## Configuration Layers
+
+```text
+Default
+
+↓
+
+Language
+
+↓
+
+Package
+
+↓
+
+Workspace
+
+↓
+
+Project
+
+↓
+
+User
+
+↓
+
+CLI
+```
+
+---
+
+آخرین Layer
+
+همیشه Override
+
+می‌کند.
+
+---
+
+# RFC-0028 — CLI
+
+CLI
+
+فقط
+
+Format
+
+نیست.
+
+---
+
+```text
+texfmt format
+
+texfmt lint
+
+texfmt check
+
+texfmt doctor
+
+texfmt explain
+
+texfmt parse
+
+texfmt ast
+
+texfmt tokens
+
+texfmt benchmark
+
+texfmt language-server
+```
+
+---
+
+## Doctor
+
+مثلاً
+
+```text
+Missing Package
+
+Wrong Version
+
+Invalid Config
+
+Broken Include
+```
+
+---
+
+## Explain
+
+کاربر می‌پرسد
+
+چرا
+
+Formatter
+
+این کار را کرد.
+
+↓
+
+```text
+Matched Rule:
+
+Heading
+
+↓
+
+Break After
+```
+
+این قابلیت برای Debug فوق‌العاده است.
+
+---
+
+# RFC-0029 — Observability
+
+اگر قرار است پروژه بزرگ شود
+
+باید قابل مشاهده باشد.
+
+---
+
+## Logger
+
+```text
+TRACE
+
+DEBUG
+
+INFO
+
+WARN
+
+ERROR
+```
+
+---
+
+## Events
+
+تمام سیستم Event دارد.
+
+```text
+FileOpened
+
+FileChanged
+
+ParseStarted
+
+ParseCompleted
+
+FormattingStarted
+
+FormattingCompleted
+```
+
+---
+
+## Metrics
+
+```text
+Files Parsed
+
+Tokens
+
+Nodes
+
+Memory
+
+CPU
+
+Cache Hit
+```
+
+---
+
+# RFC-0030 — Build System
+
+Monorepo
+
+```text
+apps/
+
+packages/
+
+plugins/
+
+benchmarks/
+
+docs/
+
+examples/
+
+tools/
+```
+
+---
+
+هر Package
+
+مستقل Build
+
+می‌شود.
+
+---
+
+# Dependency Rules
+
+```text
+apps
+
+↓
+
+public packages
+
+↓
+
+core packages
+
+↓
+
+utils
+
+↓
+
+shared
+```
+
+---
+
+هیچ Dependency
+
+برعکس
+
+نداریم.
+
+---
+
+# Architecture Validation
+
+CI
+
+چک می‌کند.
+
+مثلاً
+
+```text
+parser
+
+↓
+
+cli
+```
+
+غیرمجاز است.
+
+---
+
+# API Stability
+
+تمام Exportها
+
+دارای سطح پایداری هستند.
+
+```text
+Stable
+
+Experimental
+
+Internal
+
+Deprecated
+```
+
+---
+
+# Version Policy
+
+```text
+1.x
+
+↓
+
+No Breaking Change
+```
+
+---
+
+```text
+2.0
+
+↓
+
+Breaking
+```
+
+---
+
+# Deprecation Policy
+
+هر API
+
+حداقل
+
+دو Release
+
+Deprecated
+
+می‌ماند.
+
+---
+
+# RFC-0031 — Release Engineering
+
+انتشار خودکار.
+
+```text
+Git Tag
+
+↓
+
+CI
+
+↓
+
+Tests
+
+↓
+
+Build
+
+↓
+
+Publish
+
+↓
+
+Release Notes
+```
+
+---
+
+## Conventional Commits
+
+```text
+feat:
+
+fix:
+
+perf:
+
+docs:
+
+refactor:
+
+test:
+
+build:
+
+ci:
+```
+
+---
+
+## Changesets
+
+هر Pull Request
+
+نسخه آینده را مشخص می‌کند.
+
+---
+
+# Security
+
+Plugin
+
+Sandbox
+
+خواهد داشت.
+
+---
+
+Plugin
+
+نباید بتواند
+
+Core
+
+را خراب کند.
+
+---
+
+# آینده پروژه
+
+در این مرحله، معماری دیگر فقط برای یک Formatter نیست.
+
+ما در واقع در حال طراحی یک **Platform برای پردازش اسناد مبتنی بر TeX** هستیم.
+
+---
+
+# اما...
+
+اکنون می‌خواهم بزرگ‌ترین پیشنهاد کل پروژه را مطرح کنم؛ پیشنهادی که اگر آن را بپذیریم، TexFmt از یک پروژه متن‌باز خوب به یک پروژه مرجع در اکوسیستم TeX تبدیل می‌شود.
+
+## RFC-0032 — Specification First Development
+
+به جای اینکه کد را مرجع بدانیم، **Specification مرجع خواهد بود**.
+
+ساختار مخزن به این شکل تغییر می‌کند:
+
+```text
+spec/
+
+    lexer/
+
+    parser/
+
+    ast/
+
+    grammar/
+
+    printer/
+
+    formatter/
+
+    semantic/
+
+    workspace/
+
+    plugin-api/
+
+    lsp/
+
+docs/
+
+packages/
+
+apps/
+
+tests/
+```
+
+هر قابلیت ابتدا یک Specification رسمی خواهد داشت که شامل:
+
+- هدف
+- دامنه
+- قراردادها (Contracts)
+- قوانین
+- مثال‌های معتبر
+- مثال‌های نامعتبر
+- Edge Caseها
+- Performance Requirements
+- Test Vectors
+
+سپس تست‌ها بر اساس Specification نوشته می‌شوند و در نهایت پیاده‌سازی انجام می‌شود.
+
+---
+
+## ⏸️ توقف دوم (پایان فاز معماری)
+
+در این نقطه، ما دیگر فقط یک ایده کلی نداریم؛ بلکه تقریباً **Blueprint کامل پروژه** را طراحی کرده‌ایم.
+
+اگر این مسیر را ادامه دهیم، مرحله بعد دیگر RFC نیست، بلکه وارد طراحی اسناد اجرایی خواهیم شد:
+
+1. **Project Charter**
+2. **Architecture Decision Records (ADR)**
+3. **Coding Standards**
+4. **API Specification**
+5. **Grammar Specification**
+6. **AST Specification**
+7. **Monorepo Layout**
+8. **Development Workflow**
+9. **Test Strategy**
+10. **Roadmap 1.0 → 2.0**
+
+پس از آن، می‌توانیم با اطمینان وارد پیاده‌سازی واقعی شویم؛ به‌گونه‌ای که از ابتدا ساختاری در حد پروژه‌های بزرگ متن‌باز داشته باشد، نه صرفاً یک Formatter ساده.
+
+عالی. از اینجا به بعد دیگر از سطح **Architecture** عبور می‌کنیم و وارد سطحی می‌شویم که پروژه‌های بزرگ مانند **LLVM، Rust، TypeScript، Roslyn، Bazel و Cargo** طراحی می‌شوند.
+
+اگر تا اینجا TexFmt یک Compiler Platform بود، از اینجا به بعد تبدیل به یک **Software Ecosystem** خواهد شد.
+
+---
+
+# RFC-0033 — Module System
+
+یکی از بزرگ‌ترین اشتباهات اکثر پروژه‌ها این است که Package و Module را یکی فرض می‌کنند.
+
+من این دو را کاملاً جدا می‌کنم.
+
+```text
+Repository
+    ↓
+Package
+    ↓
+Module
+    ↓
+Component
+```
+
+مثلاً
+
+```text
+@texfmt/parser
+```
+
+یک Package است.
+
+ولی داخل آن
+
+```text
+lexer
+
+parser
+
+grammar
+
+recovery
+
+diagnostics
+```
+
+Module هستند.
+
+---
+
+## قوانین Module
+
+هر Module باید
+
+- مستقل باشد.
+- تست مستقل داشته باشد.
+- Benchmark مستقل داشته باشد.
+- Documentation مستقل داشته باشد.
+- API مستقل داشته باشد.
+
+---
+
+ساختار
+
+```text
+parser/
+
+    lexer/
+
+    grammar/
+
+    recovery/
+
+    ast/
+
+    diagnostics/
+
+    parser-core/
+```
+
+---
+
+هیچ Module نباید به Module بالاتر وابسته باشد.
+
+---
+
+# RFC-0034 — Dependency Injection
+
+تقریباً تمام پروژه‌های TS
+
+Singleton
+
+دارند.
+
+من نمی‌خواهم.
+
+---
+
+همه چیز
+
+Dependency Injection
+
+است.
+
+```text
+Workspace
+
+↓
+
+Parser
+
+↓
+
+Registry
+
+↓
+
+Grammar
+
+↓
+
+Printer
+```
+
+---
+
+نه
+
+```text
+import globalRegistry
+```
+
+---
+
+بلکه
+
+```ts
+new Parser({
+  grammar,
+
+  diagnostics,
+
+  allocator,
+});
+```
+
+---
+
+مزایا
+
+- تست ساده
+- Plugin ساده
+- Mock ساده
+- Parallel Execution
+
+---
+
+# RFC-0035 — Service Architecture
+
+تمام سیستم
+
+Service
+
+است.
+
+```text
+Parser Service
+
+Printer Service
+
+Registry Service
+
+Workspace Service
+
+Cache Service
+
+Configuration Service
+```
+
+---
+
+هر Service
+
+Lifecycle
+
+دارد.
+
+```text
+Create
+
+↓
+
+Initialize
+
+↓
+
+Running
+
+↓
+
+Dispose
+```
+
+---
+
+# Service Registry
+
+```text
+Workspace
+
+↓
+
+Services
+
+↓
+
+Parser
+
+↓
+
+Printer
+
+↓
+
+Cache
+```
+
+---
+
+نه Global.
+
+---
+
+# RFC-0036 — Event Bus
+
+تمام سیستم Event Driven است.
+
+---
+
+مثلاً
+
+```text
+Document Changed
+```
+
+↓
+
+```text
+Parser
+```
+
+↓
+
+Event
+
+↓
+
+Semantic
+
+↓
+
+Event
+
+↓
+
+Formatter
+
+↓
+
+Event
+
+↓
+
+LSP
+
+````
+
+---
+
+هیچ Component
+
+دیگری را مستقیماً صدا نمی‌زند.
+
+---
+
+# Event Interface
+
+```ts
+interface Event {
+
+    type
+
+    timestamp
+
+    payload
+
+}
+````
+
+---
+
+# Event Stream
+
+```text
+FileOpened
+
+↓
+
+FileParsed
+
+↓
+
+SemanticReady
+
+↓
+
+FormattingReady
+
+↓
+
+Rendered
+```
+
+---
+
+بعداً
+
+Performance Analyzer
+
+همین Eventها را می‌بیند.
+
+---
+
+# RFC-0037 — Command Bus
+
+CLI
+
+LSP
+
+GUI
+
+همگی
+
+Command
+
+ارسال می‌کنند.
+
+---
+
+مثلاً
+
+```text
+FormatDocument
+```
+
+↓
+
+```text
+Formatter
+```
+
+---
+
+یا
+
+```text
+RenameSymbol
+```
+
+↓
+
+```text
+Semantic
+```
+
+---
+
+این معماری
+
+CQRS
+
+را ممکن می‌کند.
+
+---
+
+# RFC-0038 — Query Engine
+
+Queryها
+
+از Commandها جدا هستند.
+
+---
+
+مثلاً
+
+```text
+GetDiagnostics
+```
+
+---
+
+یا
+
+```text
+FindDefinition
+```
+
+---
+
+یا
+
+```text
+FindReferences
+```
+
+---
+
+تمام Queryها
+
+Read Only
+
+هستند.
+
+---
+
+# RFC-0039 — Immutable State
+
+کل Workspace
+
+Immutable
+
+است.
+
+---
+
+هر تغییر
+
+State
+
+جدید می‌سازد.
+
+```text
+State1
+
+↓
+
+State2
+
+↓
+
+State3
+```
+
+---
+
+Undo
+
+تقریباً رایگان می‌شود.
+
+---
+
+# RFC-0040 — Transaction System
+
+فرض کنید
+
+Rename
+
+در
+
+۳۰ فایل
+
+انجام می‌شود.
+
+---
+
+اگر
+
+فایل ۲۵
+
+Fail
+
+شود.
+
+---
+
+Rollback
+
+اتفاق می‌افتد.
+
+---
+
+```text
+Begin
+
+↓
+
+Change
+
+↓
+
+Commit
+
+یا
+
+Rollback
+```
+
+---
+
+# RFC-0041 — Snapshot Engine
+
+هر Transaction
+
+Snapshot
+
+دارد.
+
+---
+
+```text
+Workspace
+
+↓
+
+Snapshot
+
+↓
+
+Transaction
+
+↓
+
+Snapshot
+```
+
+---
+
+برای
+
+Debug
+
+فوق‌العاده است.
+
+---
+
+# RFC-0042 — Time Travel Debugging
+
+ایده‌ای که تقریباً هیچ Formatter ندارد.
+
+---
+
+بتوانیم
+
+تمام مراحل
+
+را
+
+Replay
+
+کنیم.
+
+---
+
+```text
+Lexer
+
+↓
+
+Parser
+
+↓
+
+Semantic
+
+↓
+
+Printer
+```
+
+---
+
+در هر مرحله
+
+وقفه بزنیم.
+
+---
+
+مثلاً
+
+```text
+Show AST
+```
+
+---
+
+یا
+
+```text
+Show Tokens
+```
+
+---
+
+یا
+
+```text
+Show Formatting IR
+```
+
+---
+
+# RFC-0043 — Debug Protocol
+
+CLI
+
+خواهد داشت.
+
+```text
+texfmt debug
+```
+
+---
+
+و
+
+```text
+texfmt trace
+```
+
+---
+
+و
+
+```text
+texfmt explain
+```
+
+---
+
+همه از همین Engine استفاده می‌کنند.
+
+---
+
+# RFC-0044 — Recording Engine
+
+هر Session
+
+قابل ذخیره است.
+
+---
+
+```text
+Typing
+
+↓
+
+Events
+
+↓
+
+Recording
+```
+
+---
+
+بعداً
+
+Bug Report
+
+فقط همین Recording
+
+را ارسال می‌کند.
+
+---
+
+Developer
+
+دقیقاً همان Bug
+
+را بازسازی می‌کند.
+
+---
+
+# RFC-0045 — Crash Recovery
+
+اگر
+
+Plugin
+
+Crash
+
+کند.
+
+---
+
+Core
+
+نباید Crash
+
+کند.
+
+---
+
+```text
+Plugin
+
+↓
+
+Exception
+
+↓
+
+Sandbox
+
+↓
+
+Continue
+```
+
+---
+
+# RFC-0046 — Plugin Isolation
+
+Plugin
+
+Memory
+
+مستقل دارد.
+
+---
+
+Logger
+
+مستقل دارد.
+
+---
+
+Configuration
+
+مستقل دارد.
+
+---
+
+Permission
+
+مستقل دارد.
+
+---
+
+# RFC-0047 — Capability Model
+
+Plugin
+
+باید اعلام کند.
+
+```text
+Needs
+
+Filesystem
+
+Network
+
+Workspace
+
+Diagnostics
+
+Formatting
+```
+
+---
+
+نه اینکه
+
+همه چیز
+
+را داشته باشد.
+
+---
+
+# RFC-0048 — Security Model
+
+Plugin
+
+Sandbox
+
+می‌شود.
+
+---
+
+دسترسی مستقیم
+
+به
+
+```text
+fs
+
+process
+
+child_process
+```
+
+ندارد.
+
+---
+
+همه چیز
+
+از طریق
+
+Capability
+
+است.
+
+---
+
+# RFC-0049 — Remote Workspace
+
+چرا فقط Local؟
+
+---
+
+Workspace
+
+می‌تواند
+
+```text
+Git
+
+↓
+
+Workspace
+```
+
+---
+
+یا
+
+```text
+SSH
+
+↓
+
+Workspace
+```
+
+---
+
+یا
+
+```text
+Cloud
+```
+
+---
+
+باشد.
+
+---
+
+# RFC-0050 — Distributed Analysis
+
+این قسمت
+
+بیشتر آینده پروژه است.
+
+---
+
+Workspace
+
+```text
+Machine A
+
+↓
+
+Lexer
+```
+
+---
+
+```text
+Machine B
+
+↓
+
+Semantic
+```
+
+---
+
+```text
+Machine C
+
+↓
+
+Formatting
+```
+
+---
+
+برای پروژه‌های بسیار بزرگ.
+
+---
+
+# پایان فاز اول طراحی
+
+در این لحظه حدود **۵۰ RFC** طراحی کرده‌ایم که شامل:
+
+- Vision
+- Compiler Architecture
+- AST/CST
+- Green/Red Tree
+- Lexer
+- Parser
+- Recovery
+- Semantic Model
+- Symbol System
+- Package System
+- Grammar Engine
+- Printer
+- Formatting IR
+- Rule Engine
+- Workspace
+- Incremental Engine
+- Cache
+- Memory
+- LSP
+- Plugin SDK
+- CLI
+- Observability
+- Service Architecture
+- Event Bus
+- Command Bus
+- Security
+- Debugging
+- Transactions
+- Distributed Architecture
+
+---
+
+## پیشنهاد مهم
+
+در این نقطه، اگر واقعاً هدف ساخت **بهترین Formatter و Compiler Platform برای LaTeX** باشد، من دیگر مستقیم وارد کدنویسی نمی‌شوم.
+
+پیشنهاد من این است که ابتدا یک **Specification Repository** مستقل طراحی کنیم که چیزی شبیه اسناد رسمی LLVM یا TypeScript باشد. این مخزن شامل RFCها، ADRها، Grammar Specification، AST Specification، Rule Specification و API Contracts خواهد بود. پس از تثبیت این اسناد، پیاده‌سازی Monorepo بر اساس آن‌ها آغاز می‌شود.
+
+این رویکرد احتمال بازطراحی‌های پرهزینه در میانه توسعه را به حداقل می‌رساند و پروژه را از همان ابتدا با استانداردهای پروژه‌های بزرگ متن‌باز همسو می‌کند.
