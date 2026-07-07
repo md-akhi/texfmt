@@ -11403,3 +11403,357 @@ Formatting
 پیشنهاد من این است که ابتدا یک **Specification Repository** مستقل طراحی کنیم که چیزی شبیه اسناد رسمی LLVM یا TypeScript باشد. این مخزن شامل RFCها، ADRها، Grammar Specification، AST Specification، Rule Specification و API Contracts خواهد بود. پس از تثبیت این اسناد، پیاده‌سازی Monorepo بر اساس آن‌ها آغاز می‌شود.
 
 این رویکرد احتمال بازطراحی‌های پرهزینه در میانه توسعه را به حداقل می‌رساند و پروژه را از همان ابتدا با استانداردهای پروژه‌های بزرگ متن‌باز همسو می‌کند.
+
+کاملاً موافقم.
+
+اتفاقاً تجربه پروژه‌های بزرگی مثل **TypeScript، Rust، LLVM، Cargo، ESLint، Prettier، Babel، Biome و Roslyn** نشان داده که بزرگ‌ترین اشتباه این است که قبل از تثبیت معماری، شروع به کدنویسی کنند.
+
+به نظر من **همین ۵۰ RFC** برای شروع نسخه **v0.1** کاملاً کافی هستند.
+
+اما من یک تغییر در نحوه توسعه پیشنهاد می‌کنم که پروژه را بسیار حرفه‌ای‌تر می‌کند.
+
+---
+
+# Phase 1 — Foundation (همین الآن)
+
+این فاز فقط زیرساخت است.
+
+```
+TexFmt
+
+    Specification
+
+    ADR
+
+    Monorepo
+
+    CI
+
+    Build
+
+    Core API
+
+    Testing
+
+    Benchmark
+
+    Docs
+```
+
+در این فاز هنوز هیچ Formatter واقعی نمی‌نویسیم.
+
+---
+
+# Phase 2 — MVP
+
+فقط قابلیت‌های پایه
+
+```
+✓ Lexer
+
+✓ Parser
+
+✓ Green Tree
+
+✓ Red Tree
+
+✓ AST
+
+✓ Printer
+
+✓ Formatter
+
+✓ CLI
+```
+
+فقط روی
+
+```
+Plain LaTeX
+```
+
+---
+
+# Phase 3
+
+بعد
+
+```
+Semantic Model
+
+Workspace
+
+Incremental
+
+LSP
+```
+
+---
+
+# Phase 4
+
+بعد
+
+```
+Plugins
+
+Packages
+
+TikZ
+
+AMSMath
+
+BibLaTeX
+```
+
+---
+
+# Phase 5
+
+بعد
+
+```
+IDE
+
+VSCode
+
+Refactoring
+
+Rename
+
+Code Actions
+```
+
+---
+
+# چیزی که من می‌خواهم از همین ابتدا رعایت کنیم
+
+مثل پروژه Rust
+
+```
+spec/
+
+adr/
+
+docs/
+
+packages/
+
+apps/
+
+examples/
+
+benchmarks/
+
+tests/
+
+scripts/
+
+.github/
+```
+
+---
+
+## Monorepo
+
+من این ساختار را پیشنهاد می‌کنم.
+
+```
+texfmt/
+
+├── apps/
+│   ├── cli/
+│   ├── language-server/
+│   ├── playground/
+│   └── docs/
+│
+├── packages/
+│
+│   ├── core/
+│   ├── lexer/
+│   ├── parser/
+│   ├── ast/
+│   ├── green-tree/
+│   ├── red-tree/
+│   ├── syntax/
+│   ├── semantic/
+│   ├── formatter/
+│   ├── printer/
+│   ├── workspace/
+│   ├── cache/
+│   ├── diagnostics/
+│   ├── config/
+│   ├── plugin-api/
+│   ├── language-api/
+│   ├── utils/
+│   └── shared/
+│
+├── languages/
+│
+│   ├── latex/
+│   ├── bibtex/
+│   └── plaintex/
+│
+├── plugins/
+│
+│   ├── amsmath/
+│   ├── tikz/
+│   ├── hyperref/
+│   ├── beamer/
+│   ├── minted/
+│   └── geometry/
+│
+├── specs/
+│
+│   ├── lexer/
+│   ├── parser/
+│   ├── ast/
+│   ├── printer/
+│   ├── formatter/
+│   ├── semantic/
+│   └── plugin/
+│
+├── adr/
+│
+├── benchmarks/
+│
+├── examples/
+│
+├── tests/
+│
+├── scripts/
+│
+├── tools/
+│
+└── docs/
+```
+
+---
+
+# تکنولوژی
+
+من این Stack را انتخاب می‌کنم.
+
+```
+TypeScript 5.x
+
+Node 22+
+
+pnpm Workspace
+
+TurboRepo
+
+Vitest
+
+ESLint
+
+Biome (بعداً)
+
+Changesets
+
+GitHub Actions
+
+VitePress
+
+API Extractor
+
+TypeDoc
+```
+
+---
+
+# اصول طراحی
+
+از روز اول این قوانین را داریم.
+
+```
+✓ SOLID
+
+✓ DDD
+
+✓ Hexagonal Architecture
+
+✓ Clean Architecture
+
+✓ Immutable
+
+✓ Functional Core
+
+✓ Dependency Injection
+
+✓ Event Driven
+
+✓ Specification First
+```
+
+---
+
+# کیفیت
+
+از اولین Commit
+
+```
+100%
+
+Type Safe
+
+100%
+
+Lint
+
+100%
+
+Tests
+
+100%
+
+Docs
+```
+
+---
+
+# هدف نسخه 0.1
+
+اگر بخواهم Scope را کوچک کنم، فقط این موارد:
+
+- Parser
+- AST
+- Printer
+- Formatter
+- CLI
+- Configuration
+- تست
+- Documentation
+
+همین.
+
+نه بیشتر.
+
+---
+
+## مهم‌ترین تغییری که نسبت به صحبت‌های قبلی می‌دهم
+
+بعد از مرور همه RFCها، فکر می‌کنم **Semantic Model، LSP، Workspace، Distributed Engine و Pluginهای پیشرفته** را بهتر است از هسته **v0.1** خارج کنیم.
+
+دلیلش این است که اگر هسته شامل:
+
+- Lexer
+- Parser
+- Syntax Tree
+- Printer
+- Rule Engine
+- Formatter
+
+از ابتدا **کاملاً پایدار** باشد، اضافه کردن Semantic و LSP بعداً بسیار ساده‌تر خواهد بود؛ اما برعکس آن تقریباً همیشه به بازطراحی منجر می‌شود.
+
+---
+
+## پیشنهاد اجرای پروژه
+
+من پیشنهاد می‌کنم توسعه را در سه مخزن منطقی (در قالب یک Monorepo) پیش ببریم:
+
+1. **Specification**: همه RFCها، ADRها، Grammar و قراردادهای API.
+2. **Implementation**: کد TypeScript شامل Core، Parser، Printer و CLI.
+3. **Playground & Documentation**: وب‌سایت، مستندات، مثال‌ها و محیط آزمایش.
+
+این رویکرد باعث می‌شود از همان ابتدا پروژه ساختاری در سطح پروژه‌های بزرگ متن‌باز داشته باشد و توسعه نسخه‌های بعدی (Semantic، LSP، Refactoring و Pluginهای پیشرفته) بدون شکستن هسته انجام شود.
